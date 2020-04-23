@@ -4,7 +4,6 @@ Train InceptionV3 Network using the CUB-200-2011 dataset
 import pdb
 import os
 import sys
-import pickle
 import argparse
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -13,51 +12,11 @@ import torch
 import numpy as np
 from analysis import Logger, AverageMeter, accuracy
 
-from CUB.dataset import load_data
 from CUB import probe, tti, gen_cub_synthetic, hyperopt
+from CUB.dataset import load_data, find_class_imbalance
+from CUB.config import BASE_DIR, N_CLASSES, N_ATTRIBUTES, UPWEIGHT_RATIO, MIN_LR, LR_DECAY_SIZE
 from CUB.models import ModelXtoCY, ModelXtoChat_ChatToY, ModelXtoY, ModelXtoC, ModelOracleCtoY, ModelXtoCtoY
 
-BASE_DIR = ''
-N_CLASSES = 200
-N_ATTRIBUTES = 312
-UPWEIGHT_RATIO = 9.0
-MIN_LR = 0.0001
-LR_DECAY_SIZE = 0.1
-
-
-def find_class_imbalance(pkl_file, multiple_attr=False, attr_idx=-1):
-    """
-    Calculate class imbalance ratio for binary attribute labels stored in pkl_file
-    If attr_idx >= 0, then only return ratio for the corresponding attribute id 
-    If multiple_attr is True, then return imbalance ratio separately for each attribute. Else, calculate the overall imbalance across all attributes
-    """
-    imbalance_ratio = []
-    data = pickle.load(open(os.path.join(BASE_DIR, pkl_file), 'rb'))
-    n = len(data)
-    n_attr = len(data[0]['attribute_label'])
-    if attr_idx >= 0:
-        n_attr = 1
-    if multiple_attr:
-        n_ones = [0] * n_attr
-        total = [n] * n_attr
-    else:
-        n_ones = [0]
-        total = [n * n_attr]
-    for d in data:
-        labels = d['attribute_label']
-        if multiple_attr:
-            for i in range(n_attr):
-                n_ones[i] += labels[i]
-        else:
-            if attr_idx >= 0:
-                n_ones[0] += labels[attr_idx]
-            else:
-                n_ones[0] += sum(labels)    
-    for j in range(len(n_ones)):
-        imbalance_ratio.append(total[j]/n_ones[j] - 1)
-    if not multiple_attr: #e.g. [9.0] --> [9.0] * 312
-        imbalance_ratio *= n_attr
-    return imbalance_ratio
 
 def run_epoch_simple(model, optimizer, loader, loss_meter, acc_meter, criterion, args, is_training):
     """

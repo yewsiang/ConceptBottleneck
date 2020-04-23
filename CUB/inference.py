@@ -1,21 +1,19 @@
 """
 Evaluate trained models on the official CUB test set
 """
-import pickle
-import argparse
-import torch
-from utils import *
-from inception import *
-from mlp import *
-import joblib
 import os
-import matplotlib.pyplot as plt
-from sklearn.metrics import precision_score, recall_score, f1_score
+import torch
+import joblib
+import argparse
+import numpy as np
+from sklearn.metrics import f1_score
 
-BASE_DIR = ''
-N_CLASSES = 200
-N_ATTRIBUTES = 312
+from CUB.dataset import load_data
+from CUB.config import BASE_DIR, N_CLASSES, N_ATTRIBUTES
+from analysis import AverageMeter, multiclass_metric
+
 K = [1, 3, 5] #top k class accuracies to compute
+
 
 def eval(args):
     """

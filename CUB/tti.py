@@ -2,19 +2,11 @@
 # coding: utf-8
 import torch
 import pickle
-import argparse
-from analysis import *
-from inference import *
-from template_model import *
-from visualizer_utils import *
-
 import random
-import numpy as np
 from scipy.stats import entropy
 
-N_CLASSES = 200
-N_ATTRIBUTES = 312
-BASE_DIR = ''
+from CUB.inference import *
+from CUB.config import N_CLASSES, N_ATTRIBUTES
 
 
 def get_stage2_pred(a_hat):

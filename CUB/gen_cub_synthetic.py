@@ -5,8 +5,6 @@ import pickle
 import numpy as np
 from PIL import Image
 
-N_CLASSES = 200
-
 
 ### remove background or foreground using segmentation label
 def mask_image(file_path, out_dir_name, remove_bkgnd=True):

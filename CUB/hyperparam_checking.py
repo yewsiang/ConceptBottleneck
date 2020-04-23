@@ -1,10 +1,9 @@
 import os
 import re
+import sys
 import datetime
 import subprocess
-import sys
-
-BASE_DIR = ''
+from CUB.config import BASE_DIR
 
 
 def find_early_stop_epoch(log_file, patience):

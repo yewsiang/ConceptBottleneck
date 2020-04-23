@@ -21,7 +21,7 @@ all_weight_decay = [0.0004, 0.00004]
 all_model_type = ['simple_finetune', 'onlyAttr', 'bottleneck', 'multitask', 'end2end']
 
 
-all_configs = [{'model_type': m, 'lr': lr, 'batch_size': b, 'optimizer': o, 'lambda': l, 'scheduler_step': s, 'weight_decay': w} 
+all_configs = [{'model_type': m, 'lr': lr, 'batch_size': b, 'optimizer': o, 'lambda': l, 'scheduler_step': s, 'weight_decay': w}
                for m in all_model_type for lr in all_lr for b in all_batch_size for o in all_optimizer for l in all_lambda_val for s in all_scheduler_step for w in all_weight_decay]
 BASE_COMMAND = 'python train.py -e 300 -pretrained -use_aux %s'
 

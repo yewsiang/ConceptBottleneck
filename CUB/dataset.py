@@ -1,15 +1,16 @@
 """
 General utils for training, evaluation and data loading
 """
+import os
 import torch
 import pickle
 import numpy as np
 import torchvision.transforms as transforms
+
 from PIL import Image
+from CUB.config import BASE_DIR, N_ATTRIBUTES
 from torch.utils.data import BatchSampler
 from torch.utils.data import Dataset, DataLoader
-
-N_ATTRIBUTES = 312
 
 
 class CUBDataset(Dataset):
@@ -152,3 +153,37 @@ def load_data(pkl_paths, use_attr, no_img, batch_size, uncertain_label=False, n_
     else:
         loader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, drop_last=drop_last)
     return loader
+
+def find_class_imbalance(pkl_file, multiple_attr=False, attr_idx=-1):
+    """
+    Calculate class imbalance ratio for binary attribute labels stored in pkl_file
+    If attr_idx >= 0, then only return ratio for the corresponding attribute id
+    If multiple_attr is True, then return imbalance ratio separately for each attribute. Else, calculate the overall imbalance across all attributes
+    """
+    imbalance_ratio = []
+    data = pickle.load(open(os.path.join(BASE_DIR, pkl_file), 'rb'))
+    n = len(data)
+    n_attr = len(data[0]['attribute_label'])
+    if attr_idx >= 0:
+        n_attr = 1
+    if multiple_attr:
+        n_ones = [0] * n_attr
+        total = [n] * n_attr
+    else:
+        n_ones = [0]
+        total = [n * n_attr]
+    for d in data:
+        labels = d['attribute_label']
+        if multiple_attr:
+            for i in range(n_attr):
+                n_ones[i] += labels[i]
+        else:
+            if attr_idx >= 0:
+                n_ones[0] += labels[attr_idx]
+            else:
+                n_ones[0] += sum(labels)
+    for j in range(len(n_ones)):
+        imbalance_ratio.append(total[j]/n_ones[j] - 1)
+    if not multiple_attr: #e.g. [9.0] --> [9.0] * 312
+        imbalance_ratio *= n_attr
+    return imbalance_ratio

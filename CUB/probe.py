@@ -1,23 +1,20 @@
 
+import pdb
 import os
+import sys
 import math
 import torch
 import pickle
 import argparse
 import numpy as np
 
-from CUB.models import MLP
 from sklearn.metrics import f1_score
-from CUB.train import find_class_imbalance
 from torch.utils.data import Dataset, DataLoader
-from analysis import AverageMeter, Logger, binary_accuracy
 
-BASE_DIR = ''
-N_CLASSES = 200
-N_ATTRIBUTES = 312
-UPWEIGHT_RATIO = 9.0
-MIN_LR = 0.0001
-LR_DECAY_SIZE = 0.1
+from CUB.models import MLP
+from CUB.dataset import find_class_imbalance
+from analysis import AverageMeter, Logger, binary_accuracy
+from CUB.config import BASE_DIR, N_CLASSES, N_ATTRIBUTES, UPWEIGHT_RATIO, MIN_LR, LR_DECAY_SIZE
 
 
 class LinearProbeDataset(Dataset):

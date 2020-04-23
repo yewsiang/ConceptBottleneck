@@ -11,9 +11,7 @@ import numpy as np
 from PIL import Image
 import torchvision.transforms as transforms
 from collections import defaultdict as ddict
-
-N_ATTRIBUTES = 312
-N_CLASSES = 200
+from CUB.config import N_ATTRIBUTES, N_CLASSES
 
 
 def get_few_shot_data(n_samples, out_dir, data_files):

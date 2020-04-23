@@ -2,17 +2,18 @@
 InceptionV3 Network modified from https://github.com/pytorch/vision/blob/master/torchvision/models/inception.py
 New changes: add softmax layer + option for freezing lower layers except fc
 """
+import os
 import torch
 import torch.nn as nn
 from torch.nn import Parameter
 import torch.nn.functional as F
 import torch.utils.model_zoo as model_zoo
 
-N_ATTRIBUTES = 312
-
 __all__ = ['MLP', 'Inception3', 'inception_v3', 'End2EndModel']
 
 model_urls = {
+    # Downloaded inception model (optional)
+    'downloaded': '../pretrained/inception_v3_google-1a9a5a14.pth',
     # Inception v3 ported from TensorFlow
     'inception_v3_google': 'https://download.pytorch.org/models/inception_v3_google-1a9a5a14.pth',
 }
@@ -86,7 +87,10 @@ def inception_v3(pretrained, freeze, **kwargs):
         if 'transform_input' not in kwargs:
             kwargs['transform_input'] = True
         model = Inception3(**kwargs)
-        model.load_partial_state_dict(model_zoo.load_url(model_urls['inception_v3_google']))
+        if os.path.exists(model_urls.get('downloaded')):
+            model.load_partial_state_dict(torch.load(model_urls['downloaded']))
+        else:
+            model.load_partial_state_dict(model_zoo.load_url(model_urls['inception_v3_google']))
         if freeze:  # only finetune fc layer
             for name, param in model.named_parameters():
                 if 'fc' not in name:  # and 'Mixed_7c' not in name:
