@@ -130,8 +130,8 @@ def assess_performance(y, yhat, names, prediction_type, prefix, verbose=False):
     """
     Return standard metrics of performance of y and yhat.
     """
-    assert y.shape == yhat.shape, print('(%s) y: %s, yhat: %s' % (prefix, str(y.shape), str(yhat.shape)))
-    assert y.shape[1] == len(names), print('%s) y: %s, len(names): %d' % (prefix, str(y.shape), len(names)))
+    assert y.shape == yhat.shape, print('(%s) y: %s, yhat: %s' % (prefix, str(y.shape), str(yhat.shape)) )
+    assert y.shape[1] == len(names), print('%s) y: %s, len(names): %d' % (prefix, str(y.shape), len(names)) )
 
     metrics = {}
     for i, name in enumerate(names):

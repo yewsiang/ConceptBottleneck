@@ -16,12 +16,12 @@ import numpy as np
 from torch.utils.data import DataLoader
 
 # Global dependencies
-from config import Y_COLS, CONCEPTS_WO_KLG, CONCEPTS_BALANCED, CLASSES_PER_COLUMN, OUTPUTS_DIR, BASE_DIR, \
+from OAI.config import Y_COLS, CONCEPTS_WO_KLG, CONCEPTS_BALANCED, CLASSES_PER_COLUMN, OUTPUTS_DIR, BASE_DIR, \
     EST_TIME_PER_EXP, N_DATALOADER_WORKERS, CACHE_LIMIT, TRANSFORM_STATISTICS_TRAIN
 
 # Models and dataset
 from OAI.models import ModelXtoC, ModelXtoC_SENN, ModelOracleCtoY, ModelXtoChat_ChatToY, ModelXtoCtoY, ModelXtoY, \
-    ModelXtoCY
+    ModelXtoCY, ModelXtoYWithAuxC
 from OAI.dataset import load_non_image_data, load_data_from_different_splits, PytorchImagesDataset, \
     get_image_cache_for_split
 
@@ -176,6 +176,17 @@ def train_X_to_y(args, dataset_kwargs, model_kwargs):
     # ---- Save results ----
     save_model_results(model, results, args, dataset_kwargs, model_kwargs)
 
+def train_X_to_y_with_aux_C(args, dataset_kwargs, model_kwargs):
+
+    dataloaders, datasets, dataset_sizes = load_data_from_different_splits(**dataset_kwargs)
+
+    # ---- Model fitting ----
+    model = ModelXtoYWithAuxC(model_kwargs)
+    results = model.fit(dataloaders=dataloaders, dataset_sizes=dataset_sizes)
+
+    # ---- Save results ----
+    save_model_results(model, results, args, dataset_kwargs, model_kwargs)
+
 def train_X_to_Cy(args, dataset_kwargs, model_kwargs):
 
     dataloaders, datasets, dataset_sizes = load_data_from_different_splits(**dataset_kwargs)
@@ -267,6 +278,8 @@ def test_time_intervention(args, dataset_kwargs, model_kwargs):
     # ---- Model inference ----
     if args.test_time_intervention_model == 'X_to_C_to_y':
         model = ModelXtoCtoY(model_kwargs)
+    elif args.test_time_intervention_model == 'X_to_y_with_aux_C':
+        model = ModelXtoYWithAuxC(model_kwargs)
     elif args.test_time_intervention_model == 'X_to_Chat__Chat_to_y':
         model = ModelXtoChat_ChatToY(model_kwargs)
     elif args.test_time_intervention_model == 'X_to_Chat__OracleC_to_y':
@@ -301,16 +314,19 @@ def test_time_intervention(args, dataset_kwargs, model_kwargs):
 
         model = ModelXtoChat_OracleCToY(model_kwargs, model_CtoY)
 
+    # Determine intervention ordering (only applicable if using ordered intervention)
     if args.test_time_intervention_analysis:
         metrics_all = model.intervention_analysis(dataloaders, dataset_sizes, PHASE)
-    else:
-        metrics_all = {}
-        for n in N_CONCEPTS_TO_GIVE_LIST:
-            print('----- Intervention on %d concepts given -----' % n)
-            model.set_intervention_N_concepts(n)
-            metrics = model.train_or_eval_dataset(dataloaders, dataset_sizes, PHASE,
-                                                  intervention=True)
-            metrics_all[n] = metrics
+        intervention_order = model.get_intervention_ordering(metrics_all)
+        model.intervention_order = intervention_order
+
+    metrics_all = {}
+    for n in N_CONCEPTS_TO_GIVE_LIST:
+        print('----- Intervention on %d concepts given -----' % n)
+        model.set_intervention_N_concepts(n)
+        metrics = model.train_or_eval_dataset(dataloaders, dataset_sizes, PHASE,
+                                              intervention=True)
+        metrics_all[n] = metrics
 
     # ---- Save results ----
     save_test_time_intervention_results(model, metrics_all, args, dataset_kwargs, model_kwargs)
@@ -543,9 +559,13 @@ def generate_configs(args):
         model_kwargs['test_time_intervention_method'] = args.test_time_intervention_method
         model_kwargs['intervention_order'] = args.intervention_order
         if model_kwargs['test_time_intervention_method'] == 'ordered':
-            assert args.intervention_order is not None
-            assert len(set(args.intervention_order)) == N_concepts
-            assert 0 <= max(args.intervention_order) < N_concepts
+            assert (args.intervention_order is not None) or args.test_time_intervention_analysis
+            if args.intervention_order:
+                assert len(set(args.intervention_order)) == N_concepts
+                assert 0 <= max(args.intervention_order) < N_concepts
+        else:
+            # TTI analysis determines ordering only for an ordered intervention method
+            assert not args.test_time_intervention_analysis
 
     if experiment_name == 'Independent_CtoY':
         # Need pretrained model to get Chats
@@ -567,12 +587,16 @@ def generate_configs(args):
         # model_kwargs['fc_layers'] = [N_concepts + 1]
         assert y_dims == args.fc_layers[fc_layer_y], print(y_dims, args.fc_layers[fc_layer_y])
 
+    elif experiment_name == 'StandardWithAuxC':
+        assert y_dims == args.fc_layers[fc_layer_y], print(y_dims, args.fc_layers[fc_layer_y])
+
     elif experiment_name == 'Multitask':
         # model_kwargs['fc_layers'] = [N_concepts + 1]
         assert (C_dims + y_dims) == args.fc_layers[fc_layer_y], print(C_dims + y_dims, args.fc_layers[fc_layer_y])
         assert fc_layer_y == fc_layer_C, print(fc_layer_y, fc_layer_C)
 
-    elif experiment_name == 'Joint' or args.test_time_intervention_model == 'X_to_C_to_y':
+    elif experiment_name == 'Joint' or \
+            args.test_time_intervention_model in ['X_to_C_to_y']:
         # model_kwargs['fc_layers'] = [N_concepts, 50, 50, 1]
         assert C_dims == args.fc_layers[fc_layer_C], print(C_dims, args.fc_layers[fc_layer_C])
         assert y_dims == args.fc_layers[fc_layer_y], print(y_dims, args.fc_layers[fc_layer_y])
@@ -583,7 +607,7 @@ def generate_configs(args):
         model_kwargs['use_input_conv_layers'] = False if args.use_senn_model else \
                 (experiment_name == 'Probe')
 
-    elif experiment_name == 'HyperparameterSearch':
+    elif experiment_name == 'HyperparameterSearch' or args.test_time_intervention_model in ['X_to_y_with_aux_C']:
         pass
     else:
         raise NotImplementedError('Experiment not implemented: %s' % experiment_name)
@@ -664,7 +688,7 @@ def parse_arguments(experiment):
     parser.add_argument('dataset', type=str, help='Name of the dataset.')
     parser.add_argument('exp', type=str,
                         choices=['Concept_XtoC', 'Independent_CtoY', 'Sequential_CtoY',
-                                 'Standard', 'Multitask', 'Joint', 'Probe',
+                                 'Standard', 'StandardWithAuxC', 'Multitask', 'Joint', 'Probe',
                                  'TTI', 'HyperparameterSearch'],
                         help='Name of experiment to run.')
     parser.add_argument('--name', type=str, help='Name of the experiment will be saved as.')
@@ -733,7 +757,7 @@ def parse_arguments(experiment):
 
     # ---- Test time intervention ----
     parser.add_argument('--test_time_intervention_model', default=None,
-                        choices=['X_to_C_to_y', 'X_to_Chat__Chat_to_y', 'X_to_Chat__OracleC_to_y'],
+                        choices=['X_to_C_to_y', 'X_to_y_with_aux_C', 'X_to_Chat__Chat_to_y', 'X_to_Chat__OracleC_to_y'],
                         help='Model to be used for test time inference.')
     parser.add_argument('--test_time_intervention_split', type=str, default='test', help='Dataset split to use.')
     parser.add_argument('--test_time_intervention_method', default=None,

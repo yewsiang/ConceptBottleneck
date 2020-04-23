@@ -12,6 +12,7 @@ def run_experiments(dataset, args):
             train_Chat_to_y_and_test_on_Chat,
             train_X_to_C_to_y,
             train_X_to_y,
+            train_X_to_y_with_aux_C,
             train_X_to_Cy,
             train_probe,
             test_time_intervention,
@@ -48,6 +49,9 @@ def run_experiments(dataset, args):
     elif experiment == 'Standard':
         train_X_to_y(*args)
 
+    elif experiment == 'StandardWithAuxC':
+        train_X_to_y_with_aux_C(*args)
+
     elif experiment == 'Multitask':
         train_X_to_Cy(*args)
 
@@ -67,9 +71,10 @@ def parse_arguments():
     # First arg must be dataset, and based on which dataset it is, we will parse arguments accordingly
     assert len(sys.argv) > 2, 'You need to specify dataset and experiment'
     assert sys.argv[1].upper() in ['OAI', 'CUB'], 'Please specify OAI or CUB dataset'
-    assert sys.argv[2].upper() in ['Concept_XtoC', 'Independent_CtoY', 'Sequential_CtoY',
-                                   'Standard', 'Multitask', 'Joint', 'Probe',
-                                   'TTI', 'Robustness', 'HyperparameterSearch'], 'Please specify valid experiment'
+    assert sys.argv[2] in ['Concept_XtoC', 'Independent_CtoY', 'Sequential_CtoY',
+                           'Standard', 'StandardWithAuxC', 'Multitask', 'Joint', 'Probe',
+                           'TTI', 'Robustness', 'HyperparameterSearch'], \
+        'Please specify valid experiment. Current: %s' % sys.argv[2]
     dataset = sys.argv[1].upper()
     experiment = sys.argv[2].upper()
 

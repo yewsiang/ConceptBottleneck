@@ -126,7 +126,7 @@ class InterventionModelOnC(object):
 
         outputs = {}  # { 'pool': x }
         N_layers = len(self.fc_layers)
-        N_concepts = self.fc_layers[int(self.C_fc_name[2:]) - 1]
+        N_concepts = len(self.C_cols) #self.fc_layers[int(self.C_fc_name[2:]) - 1]
 
         outputs_C = []
         outputs_y = []
@@ -157,3 +157,51 @@ class InterventionModelOnC(object):
         outputs['C'] = torch.stack(outputs_C, dim=2)
         outputs['y'] = torch.stack(outputs_y, dim=2)
         return outputs
+
+    def get_intervention_ordering(self, results, discretize=False):
+        pred = results['pred']
+        true = results['true']
+        y_true = true['y']  # (N,1)
+        C_true = true['C_feats']  # (N,C)
+        C_pred = pred['C']  # (N,C,C+1)
+        C_pred_orig = C_pred[:, :, 0]  # (N,C)
+        y_pred_orig = pred['y'][:, 0, :1]  # (N,1)
+        y_pred_tti = pred['y'][:, 0, 1:]  # (N,C)
+        N, C = C_true.shape
+
+        if discretize:
+            # Discretization
+            C_true_list = []
+            C_pred_list = []
+            for i in range(C):
+                C_true_list.append(convert_continuous_back_to_ordinal(C_true[:, i], C_true[:, i], use_integer_bins=True)[0])
+                C_pred_list.append(
+                    convert_continuous_back_to_ordinal(C_true[:, i], C_pred_orig[:, i], use_integer_bins=True)[0])
+            C_true = np.stack(C_true_list, axis=1)
+            C_pred_orig = np.stack(C_pred_list, axis=1)
+            y_pred_orig, _ = convert_continuous_back_to_ordinal(y_true, y_pred_orig, use_integer_bins=True)
+            y_pred_tti, _ = convert_continuous_back_to_ordinal(y_true, y_pred_tti, use_integer_bins=True)
+
+        # Analyse change in error
+        y_error_orig = np.abs(y_pred_orig - y_true)  # (N,1)
+        y_error_tti = np.abs(y_pred_tti - y_true)  # (N,C)
+        # Change in error after TTI. Lower is better
+        y_error_delta = y_error_tti - y_error_orig  # (N,C)
+
+        # Find best improvement per example
+        y_best_improvement_C_ids = np.argmin(y_error_delta, axis=1)  # (N,)
+        y_improvement = y_error_delta[np.arange(N), y_best_improvement_C_ids]  # (N)
+
+        # Find best improvement amongst all examples
+        # y_improvement_asc_ids = np.argsort(y_improvement)
+
+        # Analysis of As to provide an ordering for intervention on Cs
+        # In order of best improvement
+        best_improvement_ordering = np.argsort(-np.bincount(y_best_improvement_C_ids))
+        print('Best improvement intervention: %s' % str(best_improvement_ordering))
+        # In order of highest C error
+        # mean_abs_error = np.mean(np.abs(C_pred_orig - C_true), axis=0)  # (C,)
+        # worst_error_ordering = np.argsort(-mean_abs_error)
+        # print('     Worst error intervention: %s\n' % str(worst_error_ordering))
+
+        return best_improvement_ordering

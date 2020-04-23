@@ -5,7 +5,7 @@
 
 
 # Global dependencies
-from config import Y_COLS, ATTRIBUTES_WO_KLG, ATTRIBUTES_BALANCED, CLINICAL_CONTROL_COLUMNS, OUTPUTS_DIR, BASE_DIR
+from OAI.config import Y_COLS, CONCEPTS_BALANCED
 
 import os
 import pdb
@@ -27,7 +27,7 @@ def summarize_results(experiment_folders, final=True, individual=False, keys=[],
     from sklearn.metrics import accuracy_score, precision_recall_fscore_support
     
     ys = Y_COLS
-    As = ATTRIBUTES_BALANCED 
+    As = CONCEPTS_BALANCED
     
     final_y_rmses, final_A_rmses = [], []
     for i, experiment_folder in enumerate(experiment_folders):
@@ -68,6 +68,8 @@ def summarize_results(experiment_folders, final=True, individual=False, keys=[],
 
 
 # ==== Task and concept results ====
+summarize_results(['outputs/XtoYwithAuxC_FC50_Opt1'])
+"""
 print('  Task and concept results')
 # Independent
 summarize_results(['outputs/OracleAtoY_ontop_XtoA_MLP_FC50,50,1_Regul0', 'outputs/OracleAtoY_ontop_XtoA_MLP_FC50,50,1_Regul0', 'outputs/OracleAtoY_ontop_XtoA_MLP_FC50,50,1_Regul0', 'outputs/OracleAtoY_ontop_XtoA_MLP_FC50,50,1_Regul0', 'outputs/OracleAtoY_ontop_XtoA_MLP_FC50,50,1_Regul0'], keys=['outputs/XtoA_A0.1_FC50_Opt1/model_weights.pth', 'outputs/XtoA_A0.1_FC50_Opt2/model_weights.pth', 'outputs/XtoA_A0.1_FC50_Opt3/model_weights.pth', 'outputs/XtoA_A0.1_FC50_Opt4/model_weights.pth', 'outputs/XtoA_A0.1_FC50_Opt5/model_weights.pth'])
@@ -107,7 +109,7 @@ def add_data_point(name, data, experiment_folders, keys=[], folder_prefix='outpu
 
         results = pickle.load(open(results_path, 'rb'))
         try:
-            A_rmse = np.mean([results[key]['test_%s_rmse' % attribute] for attribute in ATTRIBUTES_BALANCED])
+            A_rmse = np.mean([results[key]['test_%s_rmse' % attribute] for attribute in CONCEPTS_BALANCED])
         except:
             A_rmse = 1.0
             
@@ -126,10 +128,10 @@ def add_data_point_for_bins(name, data, experiment_folders, correlation=True, fo
 
         results = pickle.load(open(results_path, 'rb'))
         if correlation:
-            values = [results['test_set_results']['test_%s_r' % attribute] for attribute in ATTRIBUTES_BALANCED]
+            values = [results['test_set_results']['test_%s_r' % attribute] for attribute in CONCEPTS_BALANCED]
         else:
-            A_pred = [results['test_set_results']['test_%s_pred' % attribute] for attribute in ATTRIBUTES_BALANCED]
-            A_true = [results['test_set_results']['test_%s_true' % attribute] for attribute in ATTRIBUTES_BALANCED]
+            A_pred = [results['test_set_results']['test_%s_pred' % attribute] for attribute in CONCEPTS_BALANCED]
+            A_true = [results['test_set_results']['test_%s_true' % attribute] for attribute in CONCEPTS_BALANCED]
             A_abs_error = np.array([np.abs(pred - true) for pred, true in zip(A_pred, A_true)])
             values = np.mean(A_abs_error, axis=0)
         
@@ -436,3 +438,4 @@ axes[2].yaxis.grid(True, linestyle='--')
 plt.subplots_adjust(wspace=0.25)
 plt.show()
 
+"""

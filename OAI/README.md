@@ -96,6 +96,16 @@ python train.py --name XtoY_FC50_DataEffSeed[PROPORTION]_[ID] --seed [SEED] --ex
 
 ### c. TTI results (Figure 4)
 
+##### 0. Determine intervention ordering
+For each of the model types below, run the following script to determine the order of intervention on the concepts. For example, we show an example for the Joint model.
+```
+python experiments.py oai TTI --test_time_intervention_analysis --name XtoCtoY_Lambda1_FC50_Opt1_TTIAnalysis --test_time_intervention_model X_to_C_to_y --test_time_intervention_method random --pretrained outputs/XtoCtoY_Lambda1_FC50_Opt1/model_weights.pth --sampling uniform --fc_layers 10 50 50 1 --y_fc_name fc4 --C_fc_name fc1 --C_weight 1 --seed [SEED]
+```
+python experiments.py oai TTI --test_time_intervention_analysis --name XtoYwithAuxC_FC50_Opt1_TTIAnalysis --test_time_intervention_model X_to_y_with_aux_C --test_time_intervention_method ordered --pretrained outputs/XtoYwithAuxC_FC50_Opt1/model_weights.pth --sampling uniform --fc_layers 20 50 50 1 --y_fc_name fc4 --C_fc_name fc1 --C_weight 1 --seed [SEED]
+python experiments.py oai StandardWithAuxC --name XtoYwithAuxC_FC50_Opt1 --fc_layers 20 50 50 1 --y_fc_name fc4 --C_fc_name fc1 --seed 1 --lr 0.00005
+
+It is possible to run a different intervention ordering for each different seed, but we will use the ordering determined by only the first seed to reduce time. We fill in the argument of `intervention_order` with the ordering determined from the script above. For the nonlinear Joint model, the ordering is `3 2 5 8 0 7 4 1 6 9`. 
+
 ##### 1. Control
 ```
 # Nonlinear
