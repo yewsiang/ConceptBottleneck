@@ -30,6 +30,9 @@ class CUBDataset(Dataset):
         transform: whether to apply any special transformation. Default = None, i.e. use standard ImageNet preprocessing
         """
         self.data = []
+        self.is_train = any(["train" in path for path in pkl_file_paths])
+        if not self.is_train:
+            assert any([("test" in path) or ("val" in path) for path in pkl_file_paths])
         for file_path in pkl_file_paths:
             self.data.extend(pickle.load(open(file_path, 'rb')))
         self.transform = transform
@@ -45,9 +48,21 @@ class CUBDataset(Dataset):
     def __getitem__(self, idx):
         img_data = self.data[idx]
         img_path = img_data['img_path']
-        if self.image_dir != 'images':
-            img_path = img_path.replace('images', self.image_dir)
-        img = Image.open(img_path).convert('RGB')
+        # Trim unnecessary paths
+        try:
+            idx = img_path.split('/').index('CUB_200_2011')
+            if self.image_dir != 'images':
+                img_path = '/'.join([self.image_dir] + img_path.split('/')[idx+1:])
+                img_path = img_path.replace('images/', '')
+            else:
+                img_path = '/'.join(img_path.split('/')[idx:])
+            img = Image.open(img_path).convert('RGB')
+        except:
+            img_path_split = img_path.split('/')
+            split = 'train' if self.is_train else 'test'
+            img_path = '/'.join(img_path_split[:2] + [split] + img_path_split[2:])
+            img = Image.open(img_path).convert('RGB')
+
         class_label = img_data['class_label']
         if self.transform:
             img = self.transform(img)
@@ -112,7 +127,7 @@ class ImbalancedDatasetSampler(torch.utils.data.sampler.Sampler):
     def __len__(self):
         return self.num_samples
 
-def load_data(pkl_paths, use_attr, no_img, batch_size, uncertain_label=False, n_class_attr=2, image_dir='images', resampling=False, resol=299): 
+def load_data(pkl_paths, use_attr, no_img, batch_size, uncertain_label=False, n_class_attr=2, image_dir='images', resampling=False, resol=299):
     """
     Note: Inception needs (299,299,3) images with inputs scaled between -1 and 1
     Loads data with transformations applied, and upsample the minority class if there is class imbalance and weighted loss is not used

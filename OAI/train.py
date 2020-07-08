@@ -458,10 +458,6 @@ def get_results_name(experiment_name):
 
 def generate_configs(args):
 
-    # Seeds
-    np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
-
     concepts_to_use = args.C_cols
     N_concepts = len(concepts_to_use)
     dataset_kwargs = {

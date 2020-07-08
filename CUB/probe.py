@@ -7,6 +7,7 @@ import torch
 import pickle
 import argparse
 import numpy as np
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sklearn.metrics import f1_score
 from torch.utils.data import Dataset, DataLoader
@@ -41,8 +42,10 @@ def run_epoch(model, optimizer, loader, loss_meter, acc_meter, criterion_list, a
             inputs = torch.stack(inputs).t().float()
         if isinstance(labels, list):
             labels = torch.stack(labels).t().float()
-        inputs_var = torch.autograd.Variable(inputs).cuda()
-        labels_var = torch.autograd.Variable(labels).cuda()
+        inputs_var = torch.autograd.Variable(inputs)
+        inputs_var = inputs_var.cuda() if torch.cuda.is_available() else inputs_var
+        labels_var = torch.autograd.Variable(labels)
+        labels_var = labels_var.cuda() if torch.cuda.is_available() else labels_var
         
         outputs = model(inputs_var)
         #loss
@@ -73,12 +76,14 @@ def linear_probe(args):
     logger.flush()
 
     model = MLP(args.n_attributes, args.n_attributes, expand_dim=None)
-    model = model.cuda()
+    model = model.cuda() if torch.cuda.is_available() else model
     #calculate imbalance
     imbalance = find_class_imbalance(os.path.join(BASE_DIR, args.data_dir, 'train.pkl'), True)
     attr_criteria = []
     for ratio in imbalance:
-        attr_criteria.append(torch.nn.BCEWithLogitsLoss(weight=torch.FloatTensor([ratio]).cuda()))
+        r = torch.FloatTensor([ratio])
+        r = r.cuda() if torch.cuda.is_available() else r
+        attr_criteria.append(torch.nn.BCEWithLogitsLoss(weight=r))
 
     optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, model.parameters()), lr=args.lr, momentum=0.9, weight_decay=args.weight_decay)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=args.scheduler_step, gamma=0.1)
@@ -109,7 +114,7 @@ def linear_probe(args):
         if best_val_acc < val_acc_meter.avg:
             best_val_epoch = epoch
             best_val_acc = val_acc_meter.avg
-            torch.save(model, os.path.join(args.log_dir, '%d_model.pth' % epoch))
+            torch.save(model, os.path.join(args.log_dir, 'best_model.pth'))
 
         logger.write('Epoch [%d]:\tTrain loss: %.4f\tTrain accuracy: %.4f\t'
                 'Val loss: %.4f\tVal acc: %.4f\t'
@@ -148,8 +153,10 @@ def eval_linear_probe(args):
             inputs = torch.stack(inputs).t().float()
         if isinstance(labels, list):
             labels = torch.stack(labels).t().float()
-        inputs_var = torch.autograd.Variable(inputs).cuda()
-        labels_var = torch.autograd.Variable(labels).cuda()
+        inputs_var = torch.autograd.Variable(inputs)
+        inputs_var = inputs_var.cuda() if torch.cuda.is_available() else inputs_var
+        labels_var = torch.autograd.Variable(labels)
+        labels_var = labels_var.cuda() if torch.cuda.is_available() else labels_var
 
         outputs = model(inputs_var)
         sigmoid_outputs = torch.nn.Sigmoid()(outputs)
@@ -162,16 +169,31 @@ def eval_linear_probe(args):
     f1 = f1_score(all_attr_labels, all_attr_outputs_int)
     print('F1 score on test set: %.4f' % f1)
     print('Accuracy on test set: %.4f' % test_acc_meter.avg)
+    return f1, test_acc_meter.avg
 
 def run(args):
     if args.eval:
-        eval_linear_probe(args)
+        f1s, c_results = [], []
+        for data_dir, model_dir in zip(args.data_dirs, args.model_dirs):
+            args.data_dir = data_dir
+            args.model_dir = model_dir
+            f1, acc = eval_linear_probe(args)
+            f1s.append(f1)
+            c_results.append(1 - acc / 100.)
+
+        values = (-1, -1, np.mean(c_results), np.std(c_results))
+        output_string = '%.4f %.4f %.4f %.4f' % values
+        print_string = 'Error of y: %.4f +- %.4f, Error of C: %.4f +- %.4f' % values
+        print(print_string)
+        output = open('results.txt', 'w')
+        output.write(output_string)
     else:
+        args.data_dir = args.data_dirs[0]
         linear_probe(args)
 
 def parse_arguments(parser=None):
     if parser is None: parser = argparse.ArgumentParser(description='PyTorch Training')
-    parser.add_argument('-data_dir', default='', help='directory to the data used for evaluation')
+    parser.add_argument('-data_dirs', nargs='+', help='directory to the data used for evaluation')
     parser.add_argument('-n_attributes', type=int, default=N_ATTRIBUTES, help='number of attributes used')
     parser.add_argument('-scheduler_step', type=int, help='Number of steps before decaying current learning rate by half', default=1000)
     parser.add_argument('-log_dir', default=None, help='where the trained model is saved')
@@ -180,7 +202,7 @@ def parse_arguments(parser=None):
     parser.add_argument('-save_step', default=10, type=int, help='number of epochs to save model')
     parser.add_argument('-lr', type=float, default=0.01, help="learning rate")
     parser.add_argument('-weight_decay', type=float, default=5e-5, help='weight decay for optimizer')
-    parser.add_argument('-model_dir', default=None, help='where the trained model is saved')
+    parser.add_argument('-model_dirs', nargs='+', help='where the trained models are saved')
     parser.add_argument('-eval', action='store_true', help='whether to evaluate on test set')
     return parser.parse_args()
 

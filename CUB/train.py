@@ -10,7 +10,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import math
 import torch
 import numpy as np
-from analysis import Logger, AverageMeter, accuracy
+from analysis import Logger, AverageMeter, accuracy, binary_accuracy
 
 from CUB import probe, tti, gen_cub_synthetic, hyperopt
 from CUB.dataset import load_data, find_class_imbalance
@@ -33,7 +33,9 @@ def run_epoch_simple(model, optimizer, loader, loss_meter, acc_meter, criterion,
             inputs = torch.stack(inputs).t().float()
         inputs = torch.flatten(inputs, start_dim=1).float()
         inputs_var = torch.autograd.Variable(inputs).cuda()
+        inputs_var = inputs_var.cuda() if torch.cuda.is_available() else inputs_var
         labels_var = torch.autograd.Variable(labels).cuda()
+        labels_var = labels_var.cuda() if torch.cuda.is_available() else labels_var
         
         outputs = model(inputs_var)
         loss = criterion(outputs, labels_var)
@@ -69,10 +71,13 @@ def run_epoch(model, optimizer, loader, loss_meter, acc_meter, criterion, attr_c
                 if isinstance(attr_labels, list):
                     attr_labels = attr_labels[0]
                 attr_labels = attr_labels.unsqueeze(1)
-            attr_labels_var = torch.autograd.Variable(attr_labels).cuda()
+            attr_labels_var = torch.autograd.Variable(attr_labels).float()
+            attr_labels_var = attr_labels_var.cuda() if torch.cuda.is_available() else attr_labels_var
 
-        inputs_var = torch.autograd.Variable(inputs).cuda()
-        labels_var = torch.autograd.Variable(labels).cuda()
+        inputs_var = torch.autograd.Variable(inputs)
+        inputs_var = inputs_var.cuda() if torch.cuda.is_available() else inputs_var
+        labels_var = torch.autograd.Variable(labels)
+        labels_var = labels_var.cuda() if torch.cuda.is_available() else labels_var
 
         if is_training and args.use_aux:
             outputs, aux_outputs = model(inputs_var)
@@ -84,8 +89,8 @@ def run_epoch(model, optimizer, loader, loss_meter, acc_meter, criterion, attr_c
                 out_start = 1
             if attr_criterion is not None and args.attr_loss_weight > 0: #X -> A, cotraining, end2end
                 for i in range(len(attr_criterion)):
-                    losses.append(args.attr_loss_weight * (1.0 * attr_criterion[i](outputs[i+out_start], attr_labels_var[:, i]) \
-                                                            + 0.4 * attr_criterion[i](aux_outputs[i+out_start], attr_labels_var[:, i])))
+                    losses.append(args.attr_loss_weight * (1.0 * attr_criterion[i](outputs[i+out_start].squeeze().type(torch.cuda.FloatTensor), attr_labels_var[:, i]) \
+                                                            + 0.4 * attr_criterion[i](aux_outputs[i+out_start].squeeze().type(torch.cuda.FloatTensor), attr_labels_var[:, i])))
         else: #testing or no aux logits
             outputs = model(inputs_var)
             losses = []
@@ -96,16 +101,15 @@ def run_epoch(model, optimizer, loader, loss_meter, acc_meter, criterion, attr_c
                 out_start = 1
             if attr_criterion is not None and args.attr_loss_weight > 0: #X -> A, cotraining, end2end
                 for i in range(len(attr_criterion)):
-                    losses.append(args.attr_loss_weight * attr_criterion[i](outputs[i+out_start], attr_labels_var[:, i]))
+                    losses.append(args.attr_loss_weight * attr_criterion[i](outputs[i+out_start].squeeze().type(torch.cuda.FloatTensor), attr_labels_var[:, i]))
 
         if args.bottleneck: #attribute accuracy
-            for i in range(len(attr_criterion)):
-                acc = accuracy(outputs[i], attr_labels[:, i], topk=(1,))
-                acc_meter.update(acc[0], inputs.size(0))
+            sigmoid_outputs = torch.nn.Sigmoid()(torch.cat(outputs, dim=1))
+            acc = binary_accuracy(sigmoid_outputs, attr_labels)
+            acc_meter.update(acc.data.cpu().numpy(), inputs.size(0))
         else:
             acc = accuracy(outputs[0], labels, topk=(1,)) #only care about class prediction accuracy
             acc_meter.update(acc[0], inputs.size(0))
-            #TODO: attribute accuracy?
 
         if attr_criterion is not None:
             if args.bottleneck:
@@ -133,9 +137,12 @@ def train(model, args):
         else:
             imbalance = find_class_imbalance(train_data_path, False)
 
-    if not os.path.exists(args.log_dir):
+    if os.path.exists(args.log_dir): # job restarted by cluster
+        for f in os.listdir(args.log_dir):
+            os.remove(os.path.join(args.log_dir, f))
+    else:
         os.makedirs(args.log_dir)
-    
+
     logger = Logger(os.path.join(args.log_dir, 'log.txt'))
     logger.write(str(args) + '\n')
     logger.write(str(imbalance) + '\n')
@@ -148,22 +155,20 @@ def train(model, args):
         if args.weighted_loss:
             assert(imbalance is not None)
             for ratio in imbalance:
-                weight_mask = [1.0, ratio]
-                weight_mask = torch.from_numpy(np.array(weight_mask)).float()
-                attr_criterion.append(torch.nn.CrossEntropyLoss(weight=weight_mask.cuda()))
+                attr_criterion.append(torch.nn.BCEWithLogitsLoss(weight=torch.FloatTensor([ratio]).cuda()))
         else:
             for i in range(args.n_attributes):
                 attr_criterion.append(torch.nn.CrossEntropyLoss())
     else:
         attr_criterion = None
-    
+
     if args.optimizer == 'Adam':
-        optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=args.lr, weight_decay=args.weight_decay)
+        optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=arg.lr, weight_decay=args.weight_decay)
     elif args.optimizer == 'RMSprop':
         optimizer = torch.optim.RMSprop(filter(lambda p: p.requires_grad, model.parameters()), lr=args.lr, momentum=0.9, weight_decay=args.weight_decay)
     else:
         optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, model.parameters()), lr=args.lr, momentum=0.9, weight_decay=args.weight_decay)
-    #scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=0.1, patience=5, threshold=0.00001, min_lr=0.00001, eps=1e-08)    
+    #scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=0.1, patience=5, threshold=0.00001, min_lr=0.00001, eps=1e-08)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=args.scheduler_step, gamma=0.1)
     stop_epoch = int(math.log(MIN_LR / args.lr) / math.log(LR_DECAY_SIZE)) * args.scheduler_step
     print("Stop epoch: ", stop_epoch)
@@ -210,7 +215,8 @@ def train(model, args):
         if best_val_acc < val_acc_meter.avg:
             best_val_epoch = epoch
             best_val_acc = val_acc_meter.avg
-            torch.save(model, os.path.join(args.log_dir, '%d_model.pth' % epoch))
+            logger.write('New model best model at epoch %d\n' % epoch)
+            torch.save(model, os.path.join(args.log_dir, 'best_model_%d.pth' % args.seed))
             #if best_val_acc >= 100: #in the case of retraining, stop when the model reaches 100% accuracy on both train + val sets
             #    break
 
@@ -229,8 +235,8 @@ def train(model, args):
         if epoch % 10 == 0:
             print('Current lr:', scheduler.get_lr())
 
-        if epoch % args.save_step == 0:
-            torch.save(model, os.path.join(args.log_dir, '%d_model.pth' % epoch))
+        # if epoch % args.save_step == 0:
+        #     torch.save(model, os.path.join(args.log_dir, '%d_model.pth' % epoch))
 
         if epoch >= 100 and val_acc_meter.avg < 3:
             print("Early stopping because of low accuracy")
@@ -239,24 +245,23 @@ def train(model, args):
             print("Early stopping because acc hasn't improved for a long time")
             break
 
-
 def train_X_to_C(args):
     model = ModelXtoC(pretrained=args.pretrained, freeze=args.freeze, num_classes=N_CLASSES, use_aux=args.use_aux,
                       n_attributes=args.n_attributes, expand_dim=args.expand_dim, three_class=args.three_class)
     train(model, args)
 
 def train_oracle_C_to_y_and_test_on_Chat(args):
-    model = ModelOracleCtoY(n_class_attr=args.n_attributes, n_attributes=args.n_attributes,
+    model = ModelOracleCtoY(n_class_attr=args.n_class_attr, n_attributes=args.n_attributes,
                             num_classes=N_CLASSES, expand_dim=args.expand_dim)
     train(model, args)
 
 def train_Chat_to_y_and_test_on_Chat(args):
-    model = ModelXtoChat_ChatToY(n_class_attr=args.n_attributes, n_attributes=args.n_attributes,
+    model = ModelXtoChat_ChatToY(n_class_attr=args.n_class_attr, n_attributes=args.n_attributes,
                                  num_classes=N_CLASSES, expand_dim=args.expand_dim)
     train(model, args)
 
 def train_X_to_C_to_y(args):
-    model = ModelXtoCtoY(n_class_attr=args.n_attributes, pretrained=args.pretrained, freeze=args.freeze,
+    model = ModelXtoCtoY(n_class_attr=args.n_class_attr, pretrained=args.pretrained, freeze=args.freeze,
                          num_classes=N_CLASSES, use_aux=args.use_aux, n_attributes=args.n_attributes,
                          expand_dim=args.expand_dim, use_relu=args.use_relu, use_sigmoid=args.use_sigmoid)
     train(model, args)
@@ -267,7 +272,7 @@ def train_X_to_y(args):
 
 def train_X_to_Cy(args):
     model = ModelXtoCY(pretrained=args.pretrained, freeze=args.freeze, num_classes=N_CLASSES, use_aux=args.use_aux,
-                       n_attributes=args.n_attributes, three_class=args.three_class)
+                       n_attributes=args.n_attributes, three_class=args.three_class, connect_CY=args.connect_CY)
     train(model, args)
 
 def train_probe(args):
@@ -292,6 +297,7 @@ def parse_arguments(experiment):
                                  'Standard', 'Multitask', 'Joint', 'Probe',
                                  'TTI', 'Robustness', 'HyperparameterSearch'],
                         help='Name of experiment to run.')
+    parser.add_argument('--seed', required=True, type=int, help='Numpy and torch seed.')
 
     if experiment == 'Probe':
         return (probe.parse_arguments(parser),)
@@ -309,7 +315,7 @@ def parse_arguments(experiment):
         parser.add_argument('-log_dir', default=None, help='where the trained model is saved')
         parser.add_argument('-batch_size', '-b', type=int, help='mini-batch size')
         parser.add_argument('-epochs', '-e', type=int, help='epochs for training process')
-        parser.add_argument('-save_step', default=10, type=int, help='number of epochs to save model')
+        parser.add_argument('-save_step', default=1000, type=int, help='number of epochs to save model')
         parser.add_argument('-lr', type=float, help="learning rate")
         parser.add_argument('-weight_decay', type=float, default=5e-5, help='weight decay for optimizer')
         parser.add_argument('-pretrained', '-p', action='store_true',
@@ -349,6 +355,8 @@ def parse_arguments(experiment):
         parser.add_argument('-use_sigmoid', action='store_true',
                             help='Whether to include sigmoid activation before using attributes to predict Y. '
                                  'For end2end & bottleneck model')
+        parser.add_argument('-connect_CY', action='store_true',
+                            help='Whether to use concepts as auxiliary features (in multitasking) to predict Y')
         args = parser.parse_args()
         args.three_class = (args.n_class_attr == 3)
         return (args,)

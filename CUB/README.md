@@ -71,7 +71,7 @@ To run Joint models with a different lambda value, replace [LAMBDA] in the comma
 
 ##### 2. Data Efficiency
 
-For the data efficiency experiments, first create smaller datasets based on a specified number of images (i.e. shots) sampled from each class using get_few_shot_data() in *generate_new_data.py*, and update the [DATA_DIR] in the commands in section (a) to point to the new pickle files correspondingly.
+For the data efficiency experiments, first create smaller datasets based on a specified number of images (i.e. 1, 3, 7, 10, 15, 20 shots) sampled from each class using get_few_shot_data() in *generate_new_data.py*, and update the [DATA_DIR] in the commands in section (a) to point to the new pickle files correspondingly.
 
 (YS)
 ```

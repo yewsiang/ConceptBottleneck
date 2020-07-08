@@ -1,13 +1,16 @@
-
+from PIL import Image
 import os
 import json
-import pickle
 import numpy as np
-from PIL import Image
+import random
+from collections import defaultdict
 
+N_CLASSES = 200
 
-### remove background or foreground using segmentation label
 def mask_image(file_path, out_dir_name, remove_bkgnd=True):
+    """
+    Remove background or foreground using segmentation label
+    """
     im = np.array(Image.open(file_path).convert('RGB'))
     segment_path = file_path.replace('images', 'segmentations').replace('.jpg', '.png')
     segment_im = np.array(Image.open(segment_path).convert('L'))
@@ -24,13 +27,6 @@ def mask_dataset(test_pkl, out_dir_name, remove_bkgnd=True):
     file_paths = [d['img_path'] for d in data]
     for file_path in file_paths:
         mask_image(file_path, out_dir_name, remove_bkgnd)
-
-if __name__ == '__main__':
-    out_dir_name = '/no_bkgnd_images/'
-    for folder in os.listdir('datasets/CUB_200_2011/images/'):
-        os.mkdir('datasets/CUB_200_2011' + out_dir_name + folder)
-    mask_dataset('test.pkl', out_dir_name, remove_bkgnd=True)
-
 
 def crop_and_resize(source_img, target_img):
     """
@@ -83,6 +79,7 @@ def crop_and_resize(source_img, target_img):
     source_resized = source_img.crop(resize).resize((target_width, target_height), Image.ANTIALIAS)
     return source_resized
 
+
 def combine_and_mask(img_new, mask, img_black):
     """
     Combine img_new, mask, and image_black based on the mask
@@ -104,7 +101,36 @@ def combine_and_mask(img_new, mask, img_black):
 
     return img_combined
 
-def run(args):
+def get_places(fname):
+    """
+    Load list of places imgs and classes into dictionary
+    """
+    places_dict = defaultdict(list)
+    with open(fname, 'r') as f:
+        for line in f:
+            img_name, n = line.split()
+            places_dict[int(n)].append(img_name)
+    return places_dict
+
+if __name__ == '__main__':
+    from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
+
+    parser = ArgumentParser(
+        description='Make segmentations',
+        formatter_class=ArgumentDefaultsHelpFormatter)
+
+    parser.add_argument('--cub_dir', default='datasets/CUB_200_2011/', help='Path to CUB (should also contain segmentations folder)')
+    parser.add_argument('--places_dir', default='datasets/places365/', help='Path to Places365 dataset')
+    parser.add_argument('--places_split', default='val_large', help='Which Places365 split to use (folder in --places_dir)')
+    parser.add_argument('--places_file', default='places365_val.txt', help='Filepath to list of places images and classes (file in --places_dir)')
+    parser.add_argument('--out_dir', default='.', help='Output directory')
+    parser.add_argument('--black_dirname', default='CUB_black', help='Name of black dataset: black background for each image')
+    parser.add_argument('--random_dirname', default='CUB_random', help='Name of random dataset: completely random place sampled for each image')
+    parser.add_argument('--fixed_dirname', default='CUB_fixed', help='Name of fixed dataset: class <-> place association fixed at train, swapped at test')
+    parser.add_argument('--seed', type=int, default=42, help='Random seed')
+
+    args = parser.parse_args()
+
     np.random.seed(args.seed)
 
     # Get species
@@ -135,7 +161,7 @@ def run(args):
     # Shift sampled places at test
     s2p_test = {s: int(p) for s, p in zip(species, np.roll(sampled_places, 1))}
 
-    for spc in tqdm(species, desc='Classes'):
+    for spc in species:
         spc_img_dir = os.path.join(img_dir, spc)
         spc_seg_dir = os.path.join(seg_dir, spc)
 
@@ -162,15 +188,13 @@ def run(args):
         # Get fixed places for this species
         train_place = s2p_train[spc]
         test_place = s2p_test[spc]
-        train_place_imgs = [np.random.choice(places_dict[train_place], size=1)[0]] * len(
-            spc_img)  # np.random.choice(places_dict[train_place], size=len(spc_img), replace=False)
-        test_place_imgs = [np.random.choice(places_dict[test_place], size=1)[0]] * len(
-            spc_img)  # np.random.choice(places_dict[test_place], size=len(spc_img), replace=False)
+        train_place_imgs = np.random.choice(places_dict[train_place], size=len(spc_img), replace=False)
+        test_place_imgs = np.random.choice(places_dict[test_place], size=len(spc_img), replace=False)
 
         # (image, segmentation, train place, test place
         it = zip(spc_img, spc_seg, train_place_imgs, test_place_imgs)
 
-        for img_path, seg_path, train_place_path, test_place_path in tqdm(it, desc='Images', total=len(spc_img)):
+        for img_path, seg_path, train_place_path, test_place_path in it:
             full_img_path = os.path.join(spc_img_dir, img_path)
             full_seg_path = os.path.join(spc_seg_dir, seg_path)
 
@@ -214,34 +238,3 @@ def run(args):
         json.dump(s2p_train, f, sort_keys=True, indent=4)
     with open(os.path.join(fixed_dir, 'test_places.json'), 'w') as f:
         json.dump(s2p_test, f, sort_keys=True, indent=4)
-
-def parse_arguments(parser=None):
-    if parser is None:
-        from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
-
-        parser = ArgumentParser(
-            description='Make segmentations',
-            formatter_class=ArgumentDefaultsHelpFormatter)
-
-    parser.add_argument('--cub_dir', default='datasets/CUB_200_2011/',
-                        help='Path to CUB (should also contain segmentations folder)')
-    parser.add_argument('--places_dir', default='datasets/places365/', help='Path to Places365 dataset')
-    parser.add_argument('--places_split', default='val_large',
-                        help='Which Places365 split to use (folder in --places_dir)')
-    parser.add_argument('--places_file', default='places365_val.txt',
-                        help='Filepath to list of places images and classes (file in --places_dir)')
-    parser.add_argument('--out_dir', default='.', help='Output directory')
-    parser.add_argument('--black_dirname', default='CUB_black',
-                        help='Name of black dataset: black background for each image')
-    parser.add_argument('--random_dirname', default='CUB_random',
-                        help='Name of random dataset: completely random place sampled for each image')
-    parser.add_argument('--fixed_dirname', default='CUB_fixed',
-                        help='Name of fixed dataset: class <-> place association fixed at train, swapped at test')
-    parser.add_argument('--seed', type=int, default=42, help='Random seed')
-
-    return parser.parse_args()
-
-
-if __name__ == '__main__':
-    args = parse_arguments()
-    run(args)

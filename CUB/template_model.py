@@ -13,7 +13,7 @@ __all__ = ['MLP', 'Inception3', 'inception_v3', 'End2EndModel']
 
 model_urls = {
     # Downloaded inception model (optional)
-    'downloaded': '../pretrained/inception_v3_google-1a9a5a14.pth',
+    'downloaded': 'pretrained/inception_v3_google-1a9a5a14.pth',
     # Inception v3 ported from TensorFlow
     'inception_v3_google': 'https://download.pytorch.org/models/inception_v3_google-1a9a5a14.pth',
 }
@@ -24,7 +24,6 @@ class End2EndModel(torch.nn.Module):
         super(End2EndModel, self).__init__()
         self.first_model = model1
         self.sec_model = model2
-        self.n_class_attr = n_class_attr
         self.use_relu = use_relu
         self.use_sigmoid = use_sigmoid
 
@@ -32,12 +31,11 @@ class End2EndModel(torch.nn.Module):
         if self.use_relu:
             attr_outputs = [nn.ReLU()(o) for o in stage1_out]
         elif self.use_sigmoid:
-            attr_outputs = [torch.nn.Softmax(dim=1)(o) for o in stage1_out]
+            attr_outputs = [torch.nn.Sigmoid()(o) for o in stage1_out]
         else:
             attr_outputs = stage1_out
 
-        if self.n_class_attr == 2:
-            stage2_inputs = [o.select(dim=1, index=1).unsqueeze(1) for o in attr_outputs]
+        stage2_inputs = attr_outputs
         stage2_inputs = torch.cat(stage2_inputs, dim=1)
         all_out = [self.sec_model(stage2_inputs)]
         all_out.extend(stage1_out)
@@ -102,10 +100,9 @@ def inception_v3(pretrained, freeze, **kwargs):
 
 class Inception3(nn.Module):
 
-    def __init__(self, num_classes, aux_logits=True, transform_input=False, n_attributes=0, bottleneck=False,
-                 expand_dim=0, three_class=False):
+    def __init__(self, num_classes, aux_logits=True, transform_input=False, n_attributes=0, bottleneck=False, expand_dim=0, three_class=False, connect_CY=False):
         """
-        Arguments:
+        Args:
         num_classes: number of main task classes
         aux_logits: whether to also output auxiliary logits
         transform input: whether to invert the transformation by ImageNet (should be set to True later on)
@@ -134,22 +131,23 @@ class Inception3(nn.Module):
         self.Mixed_6e = InceptionC(768, channels_7x7=192)
         if aux_logits:
             self.AuxLogits = InceptionAux(768, num_classes, n_attributes=self.n_attributes, bottleneck=bottleneck, \
-                                          expand_dim=expand_dim, three_class=three_class)
+                                                expand_dim=expand_dim, three_class=three_class, connect_CY=connect_CY)
         self.Mixed_7a = InceptionD(768)
         self.Mixed_7b = InceptionE(1280)
         self.Mixed_7c = InceptionE(2048)
 
-        if three_class:
-            self.n_class_attr = 3
+        self.all_fc = nn.ModuleList() #separate fc layer for each prediction task. If main task is involved, it's always the first fc in the list
+
+        if connect_CY:
+            self.cy_fc = FC(n_attributes, num_classes, expand_dim)
         else:
-            self.n_class_attr = 2
-        self.all_fc = nn.ModuleList()  # separate fc layer for each prediction task. If main task is involved, it's always the first fc in the list
+            self.cy_fc = None
 
         if self.n_attributes > 0:
-            if not bottleneck:  # cotraining
+            if not bottleneck: #multitasking
                 self.all_fc.append(FC(2048, num_classes, expand_dim))
             for i in range(self.n_attributes):
-                self.all_fc.append(FC(2048, self.n_class_attr, expand_dim))
+                self.all_fc.append(FC(2048, 1, expand_dim))
         else:
             self.all_fc.append(FC(2048, num_classes, expand_dim))
 
@@ -222,6 +220,9 @@ class Inception3(nn.Module):
         out = []
         for fc in self.all_fc:
             out.append(fc(x))
+        if self.n_attributes > 0 and not self.bottleneck and self.cy_fc is not None:
+            attr_preds = torch.cat(out[1:], dim=1)
+            out[0] += self.cy_fc(attr_preds)
         if self.training and self.aux_logits:
             return out, out_aux
         else:
@@ -431,7 +432,7 @@ class InceptionE(nn.Module):
 
 class InceptionAux(nn.Module):
 
-    def __init__(self, in_channels, num_classes, n_attributes=0, bottleneck=False, expand_dim=0, three_class=False):
+    def __init__(self, in_channels, num_classes, n_attributes=0, bottleneck=False, expand_dim=0, three_class=False, connect_CY=False):
         super(InceptionAux, self).__init__()
         self.conv0 = BasicConv2d(in_channels, 128, kernel_size=1)
         self.conv1 = BasicConv2d(128, 768, kernel_size=5)
@@ -440,17 +441,18 @@ class InceptionAux(nn.Module):
         self.bottleneck = bottleneck
         self.expand_dim = expand_dim
 
-        if three_class:
-            self.n_class_attr = 3
+        if connect_CY:
+            self.cy_fc = FC(n_attributes, num_classes, expand_dim)
         else:
-            self.n_class_attr = 2
+            self.cy_fc = None
+
         self.all_fc = nn.ModuleList()
 
         if n_attributes > 0:
-            if not bottleneck:  # cotraining
+            if not bottleneck: #cotraining
                 self.all_fc.append(FC(768, num_classes, expand_dim, stddev=0.001))
             for i in range(self.n_attributes):
-                self.all_fc.append(FC(768, self.n_class_attr, expand_dim, stddev=0.001))
+                self.all_fc.append(FC(768, 1, expand_dim, stddev=0.001))
         else:
             self.all_fc.append(FC(768, num_classes, expand_dim, stddev=0.001))
 
@@ -470,6 +472,9 @@ class InceptionAux(nn.Module):
         out = []
         for fc in self.all_fc:
             out.append(fc(x))
+        if self.n_attributes > 0 and not self.bottleneck and self.cy_fc is not None:
+            attr_preds = torch.cat(out[1:], dim=1)
+            out[0] += self.cy_fc(attr_preds)
         return out
 
 

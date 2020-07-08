@@ -6,7 +6,7 @@ import sklearn
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import pearsonr, spearmanr
-from sklearn.metrics import mean_squared_error, precision_recall_fscore_support, accuracy_score
+from sklearn.metrics import mean_squared_error, precision_recall_fscore_support, accuracy_score, precision_score, recall_score, balanced_accuracy_score, classification_report
 
 
 # ---------------------- OAI ----------------------
@@ -306,12 +306,12 @@ def binary_accuracy(output, target):
     output and target are Torch tensors
     """
     pred = output.cpu() >= 0.5
-    # print(list(output.data.cpu().numpy()))
-    # print(list(pred.data[0].numpy()))
-    # print(list(target.data[0].numpy()))
-    # print(pred.size(), target.size())
+    #print(list(output.data.cpu().numpy()))
+    #print(list(pred.data[0].numpy()))
+    #print(list(target.data[0].numpy()))
+    #print(pred.size(), target.size())
     acc = (pred.int()).eq(target.int()).sum()
-    acc = acc * 100 / (target.size(0) * target.size(1))
+    acc = acc*100 / np.prod(np.array(target.size()))
     return acc
 
 def multiclass_metric(output, target):

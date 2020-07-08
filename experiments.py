@@ -88,4 +88,14 @@ def parse_arguments():
     return dataset, args
 
 if __name__ == '__main__':
-    run_experiments(*parse_arguments())
+
+    import torch
+    import numpy as np
+
+    dataset, args = parse_arguments()
+
+    # Seeds
+    np.random.seed(args[0].seed)
+    torch.manual_seed(args[0].seed)
+
+    run_experiments(dataset, args)

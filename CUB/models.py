@@ -39,7 +39,7 @@ def ModelXtoY(pretrained, freeze, num_classes, use_aux):
     return inception_v3(pretrained=pretrained, freeze=freeze, num_classes=num_classes, aux_logits=use_aux)
 
 # Multitask Model
-def ModelXtoCY(pretrained, freeze, num_classes, use_aux, n_attributes, three_class):
+def ModelXtoCY(pretrained, freeze, num_classes, use_aux, n_attributes, three_class, connect_CY):
     return inception_v3(pretrained=pretrained, freeze=freeze, num_classes=num_classes, aux_logits=use_aux,
-                        n_attributes=n_attributes, bottleneck=False,
-                        three_class=three_class)
+                        n_attributes=n_attributes, bottleneck=False, three_class=three_class,
+                        connect_CY=connect_CY)

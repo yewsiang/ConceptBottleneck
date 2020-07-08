@@ -2,6 +2,7 @@
 Create variants of the initial CUB dataset
 """
 import os
+import sys
 import copy
 import torch
 import random
@@ -9,28 +10,23 @@ import pickle
 import argparse
 import numpy as np
 from PIL import Image
+from shutil import copyfile
 import torchvision.transforms as transforms
 from collections import defaultdict as ddict
+
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from CUB.config import N_ATTRIBUTES, N_CLASSES
 
 
-def get_few_shot_data(n_samples, out_dir, data_files):
+def get_few_shot_data(n_samples, out_dir, data_file='train.pkl'):
     """
     For few shot training: from data_file, sample n_samples randomly and save the metadata corresponding to these samples to out_dir
     """
     random.seed(0)
-    all_data = []
-    for data_file in data_files:
-        all_data.extend(pickle.load(open(data_file, 'rb')))
+    data = pickle.load(open(data_file, 'rb'))
     class_to_data = ddict(list)
-    #class_to_data_remaining = ddict(list)
-    for d in all_data:
+    for d in data:
         class_to_data[d['class_label']].append(d)
-    #class_to_data_remaining[d['class_label']].append(d)
-    #for k, v in class_to_data.items():
-    #    print("class %d has %d images" % (k, len(v)))
-
-    #create train data
     new_data = []
     for c, data_list in class_to_data.items():
         if len(data_list) < n_samples:
@@ -150,7 +146,7 @@ def split_into_groups(single_attr, attr_name_file):
             if not single_attr:
                 save_dir = 'attribute_group_' + str(i)
             else:
-                save_dir = 'attribute_' + str(i)    
+                save_dir = 'attribute_' + str(i)
             if not os.path.exists(save_dir):
                 os.mkdir(save_dir)
             new_data = []
@@ -163,12 +159,12 @@ def split_into_groups(single_attr, attr_name_file):
             pickle.dump(new_data, f)
             f.close()
 
-def change_img_dir_data(new_image_folder, data_dir='', out_dir='masked_datasets/'):
+def change_img_dir_data(new_image_folder, datasets, data_dir='', out_dir='masked_datasets/'):
     """
     Change the prefix of img_path data in data_dir to new_image_folder
     """
     compute_fn = lambda d: os.path.join(new_image_folder, d['img_path'].split('/')[-2], d['img_path'].split('/')[-1]) 
-    create_new_dataset(out_dir, 'img_path', compute_fn, data_dir)
+    create_new_dataset(out_dir, 'img_path', datasets=datasets, compute_fn=compute_fn, data_dir=data_dir)
 
 def create_logits_data(model_path, out_dir, data_dir='', use_relu=False, use_sigmoid=False):
     """
@@ -187,67 +183,87 @@ def get_representation_linear_probe(model_path, layer_idx, out_dir, data_dir):
     create_new_dataset(out_dir, 'representation_logits', get_representation_train, datasets=['train'], data_dir=data_dir)
     create_new_dataset(out_dir, 'representation_logits', get_representation_test, datasets=['val', 'test'], data_dir=data_dir)
 
+
 def inference(img_path, model, use_relu, use_sigmoid, is_train, resol=299, layer_idx=None):
     """
     For a single image stored in img_path, run inference using model and return A\hat (if layer_idx is None) or values extracted from layer layer_idx 
     """
     model.eval()
-    #see utils.py
+    # see utils.py
     if is_train:
         transform = transforms.Compose([
-            transforms.ColorJitter(brightness=32/255, saturation=(0.5, 1.5)),
+            transforms.ColorJitter(brightness=32 / 255, saturation=(0.5, 1.5)),
             transforms.RandomResizedCrop(resol),
             transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(), #implicitly divides by 255
-            transforms.Normalize(mean = [0.5, 0.5, 0.5], std = [2, 2, 2])
-            ])
+            transforms.ToTensor(),  # implicitly divides by 255
+            transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[2, 2, 2])
+        ])
     else:
         transform = transforms.Compose([
             transforms.CenterCrop(resol),
-            transforms.ToTensor(), #implicitly divides by 255
-            transforms.Normalize(mean = [0.5, 0.5, 0.5], std = [2, 2, 2])
-            ])
+            transforms.ToTensor(),  # implicitly divides by 255
+            transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[2, 2, 2])
+        ])
 
+    # Trim unnecessary paths
+    try:
+        idx = img_path.split('/').index('CUB_200_2011')
+        img_path = '/'.join(img_path.split('/')[idx:])
+    except:
+        img_path_split = img_path.split('/')
+        split = 'train' if is_train else 'test'
+        img_path = '/'.join(img_path_split[:2] + [split] + img_path_split[2:])
     img = Image.open(img_path).convert('RGB')
     img_tensor = transform(img).unsqueeze(0)
     input_var = torch.autograd.Variable(img_tensor).cuda()
     if layer_idx is not None:
         all_mods = list(model.modules())
-        cropped_model = torch.nn.Sequential(*list(model.children())[:layer_idx]) #nn.ModuleList(all_mods[:layer_idx])
+        cropped_model = torch.nn.Sequential(*list(model.children())[:layer_idx])  # nn.ModuleList(all_mods[:layer_idx])
+        print(type(input_var), input_var.shape, input_var)
         return cropped_model(input_var)
 
     outputs = model(input_var)
     if use_relu:
         attr_outputs = [torch.nn.ReLU()(o) for o in outputs]
     elif use_sigmoid:
-        attr_outputs = [torch.nn.Softmax(dim=1)(o) for o in outputs]
+        attr_outputs = [torch.nn.Sigmoid()(o) for o in outputs]
     else:
         attr_outputs = outputs
-    attr_outputs = torch.cat([o.select(dim=1, index=1).unsqueeze(1) for o in attr_outputs], dim=1).squeeze()
+
+    attr_outputs = torch.cat([o.unsqueeze(1) for o in attr_outputs], dim=1).squeeze()
     return list(attr_outputs.data.cpu().numpy())
 
+
 def inference_no_grad(img_path, model, use_relu, use_sigmoid, is_train, resol=299, layer_idx=None):
+    """
+    Extract activation from layer_idx of model for input from img_path (for linear probe)
+    """
     with torch.no_grad():
         attr_outputs = inference(img_path, model, use_relu, use_sigmoid, is_train, resol, layer_idx)
-    return [list(o.cpu().numpy().squeeze())[0] for o in attr_outputs]
+    #return [list(o.cpu().numpy().squeeze())[0] for o in attr_outputs]
+    return [o.cpu().numpy().squeeze()[()] for o in attr_outputs]
+
 
 def convert_3_class(data_dir, out_dir='three_class/'):
     """
     Transform attribute labels in the dataset in data_dir to create a separate prediction class for not visible attributes
     """
+
     def filter_not_visible(d):
-        certainty =  np.array(d['attribute_certainty'])
+        certainty = np.array(d['attribute_certainty'])
         not_visible_idx = np.where(certainty == 1)[0]
         attr_label = np.array(d['attribute_label'])
         attr_label[not_visible_idx] = 2
         return list(attr_label)
+
     create_new_dataset(out_dir, 'attribute_label', filter_not_visible, data_dir)
+
 
 def create_new_dataset(out_dir, field_change, compute_fn, datasets=['train', 'val', 'test'], data_dir=''):
     """
     Generic function that given datasets stored in data_dir, modify/ add one field of the metadata in each dataset based on compute_fn
                           and save the new datasets to out_dir
-    compute_fn should take in a metadata object (that includes 'img_path', 'class_label', 'attribute_label', etc.) 
+    compute_fn should take in a metadata object (that includes 'img_path', 'class_label', 'attribute_label', etc.)
                           and return the updated value for field_change
     """
     if not os.path.exists(out_dir):
@@ -263,12 +279,13 @@ def create_new_dataset(out_dir, field_change, compute_fn, datasets=['train', 'va
             new_value = compute_fn(d)
             if field_change in d:
                 old_value = d[field_change]
-                assert(type(old_value) == type(new_value))
+                assert (type(old_value) == type(new_value))
             new_d[field_change] = new_value
             new_data.append(new_d)
         f = open(os.path.join(out_dir, dataset + '.pkl'), 'wb')
         pickle.dump(new_data, f)
         f.close()
+
 
 def mask_image(file_path, out_dir_name, remove_bkgnd=True):
     """
@@ -278,11 +295,12 @@ def mask_image(file_path, out_dir_name, remove_bkgnd=True):
     im = np.array(Image.open(file_path).convert('RGB'))
     segment_path = file_path.replace('images', 'segmentations').replace('.jpg', '.png')
     segment_im = np.array(Image.open(segment_path).convert('L'))
-    mask = segment_im.astype(float)/255
-    if not remove_bkgnd: #remove bird in the foreground instead
+    mask = segment_im.astype(float) / 255
+    if not remove_bkgnd:  # remove bird in the foreground instead
         mask = 1 - mask
     new_im = (im * mask[:, :, None]).astype(np.uint8)
     Image.fromarray(new_im).save(file_path.replace('/images/', out_dir_name))
+
 
 def mask_dataset(pkl_file, out_dir_name, remove_bkgnd=True):
     """
@@ -297,21 +315,27 @@ def mask_dataset(pkl_file, out_dir_name, remove_bkgnd=True):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('exp', type=str,
-                        choices=['ExtractConcepts', 'ExtractProbeRepresentations', 'DataEfficiencySplits'],
+                        choices=['ExtractConcepts', 'ExtractProbeRepresentations', 'DataEfficiencySplits', 'ChangeAdversarialDataDir'],
                         help='Name of experiment to run.')
     parser.add_argument('--model_path', type=str, help='Path of model')
     parser.add_argument('--out_dir', type=str, help='Output directory')
     parser.add_argument('--data_dir', type=str, help='Data directory')
+    parser.add_argument('--adv_data_dir', type=str, help='Adversarial data directory')
+    parser.add_argument('--train_splits', type=str, nargs='+', help='Train splits to use')
     parser.add_argument('--use_relu', action='store_true', help='Use Relu')
     parser.add_argument('--use_sigmoid', action='store_true', help='Use Sigmoid')
-    parser.add_argument('--layer_idx', type=int, help='Layer id to extract probe representations')
+    parser.add_argument('--layer_idx', type=int, default=None, help='Layer id to extract probe representations')
     parser.add_argument('--n_samples', type=int, help='Number of samples for data efficiency split')
-    parser.add_argument('--data_files', type=str, nargs='+', help='Data files of splits')
+    parser.add_argument('--splits_dir', type=str, help='Data dir of splits')
     args = parser.parse_args()
 
     if args.exp == 'ExtractConcepts':
         create_logits_data(args.model_path, args.out_dir, args.data_dir, args.use_relu, args.use_sigmoid)
     elif args.exp == 'ExtractProbeRepresentations':
         get_representation_linear_probe(args.model_path, args.layer_idx, args.out_dir, args.data_dir)
+    elif args.exp == 'ChangeAdversarialDataDir':
+        change_img_dir_data(args.adv_data_dir, datasets=args.train_splits, data_dir=args.data_dir, out_dir=args.out_dir)
     elif args.exp == 'DataEfficiencySplits':
-        get_few_shot_data(args.n_samples, args.out_dir, args.data_files)
+        get_few_shot_data(args.n_samples, args.out_dir, os.path.join(args.splits_dir, 'train.pkl'))
+        get_few_shot_data(args.n_samples, args.out_dir, os.path.join(args.splits_dir, 'val.pkl'))
+        copyfile(os.path.join(args.splits_dir, 'test.pkl'), os.path.join(args.out_dir, 'test.pkl'))
