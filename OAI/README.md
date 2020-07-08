@@ -138,9 +138,3 @@ python train.py --name XtoChat_OracleAToY_PRE-XtoC_C0.1_FC50_Opt[ID]-_Opt[ID]_TT
 # Linear
 python train.py --name XtoChat_OracleAToY_PRE-XtoC_C0.1_Opt[ID]-_Opt[ID]_TTI_OrderBestImprov --exp TTI --test_time_intervention_model X_to_Chat__OracleA_to_y --test_time_intervention_method ordered --intervention_order 3 2 8 7 5 0 4 6 9 1 --pretrained outputs/XtoChat_ChatToY_PRE-XtoC_C0.1_Opt[ID]-_Opt[ID]/model_weights.pth --front_fc_layers_to_freeze 0 --fc_layers 10 1 --C_fc_name fc1 --y_fc_name fc2 --C_weight 0.1 --seed [SEED] --oracle_C_to_y_model lr
 ```
-
-## Results and plots
-To obtain the experimental results and generate the plots in the paper, run 
-```
-python plots.py
-```
