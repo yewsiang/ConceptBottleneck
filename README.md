@@ -48,3 +48,4 @@ docker pull codalab/default-gpu
 ## Usage
 
 ## Codalab
+You can visit our [Codalab page](https://worksheets.codalab.org/worksheets/0x362911581fcd4e048ddfd84f47203fd2) to follow our experiments and retrieve the figures in our paper. 
