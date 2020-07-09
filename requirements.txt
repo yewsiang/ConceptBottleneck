@@ -47,7 +47,7 @@ spacy==2.1.8
 srsly==0.1.0
 sympy==1.4
 tensorboard==1.14.0
-tensorflow-gpu==1.12.0
+tensorflow-gpu==1.15.2
 termcolor==1.1.0
 thinc==7.0.8
 torch==1.1.0
