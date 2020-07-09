@@ -13,38 +13,34 @@ r = {
     'Joint0.1': np.genfromtxt('Joint0.1Model/results.txt'),
     'Joint1': np.genfromtxt('Joint1Model/results.txt'),
     'Standard': np.genfromtxt('Joint0Model/results.txt'),
-    'Standard_Probe': np.genfromtxt('Joint0Model_LinearProbe/results.txt'),
+    'Standard Probe': np.genfromtxt('Joint0Model_LinearProbe/results.txt'),
     'Standard No Bottleneck': np.genfromtxt('StandardNoBNModel/results.txt'),
     'Multitask': np.genfromtxt('MultitaskModel/results.txt'),
 
     # Data efficiency experiments
-    'StandardModel_DataEffN1': np.genfromtxt('StandardModel_DataEffN1_Result/results.txt'),
-    'StandardModel_DataEffN3': np.genfromtxt('StandardModel_DataEffN3_Result/results.txt'),
-    'StandardModel_DataEffN7': np.genfromtxt('StandardModel_DataEffN7_Result/results.txt'),
-    'StandardModel_DataEffN10': np.genfromtxt('StandardModel_DataEffN10_Result/results.txt'),
-    'StandardModel_DataEffN15': np.genfromtxt('StandardModel_DataEffN15_Result/results.txt'),
-    'StandardModel_DataEffN20': np.genfromtxt('StandardModel_DataEffN20_Result/results.txt'),
+    'StandardModel_DataEffN1': np.genfromtxt('Joint0Model_DataEffN1_Result/results.txt'),
+    'StandardModel_DataEffN3': np.genfromtxt('Joint0Model_DataEffN3_Result/results.txt'),
+    'StandardModel_DataEffN7': np.genfromtxt('Joint0Model_DataEffN7_Result/results.txt'),
+    'StandardModel_DataEffN10': np.genfromtxt('Joint0Model_DataEffN10_Result/results.txt'),
+    'StandardModel_DataEffN15': np.genfromtxt('Joint0Model_DataEffN15_Result/results.txt'),
 
     'Joint0.01Model_DataEffN1': np.genfromtxt('Joint0.01Model_DataEffN1_Result/results.txt'),
     'Joint0.01Model_DataEffN3': np.genfromtxt('Joint0.01Model_DataEffN3_Result/results.txt'),
     'Joint0.01Model_DataEffN7': np.genfromtxt('Joint0.01Model_DataEffN7_Result/results.txt'),
     'Joint0.01Model_DataEffN10': np.genfromtxt('Joint0.01Model_DataEffN10_Result/results.txt'),
     'Joint0.01Model_DataEffN15': np.genfromtxt('Joint0.01Model_DataEffN15_Result/results.txt'),
-    'Joint0.01Model_DataEffN20': np.genfromtxt('Joint0.01Model_DataEffN20_Result/results.txt'),
 
     'IndependentModel_DataEffN1': np.genfromtxt('IndependentModel_WithVal_DataEffN1_Result/results.txt'),
     'IndependentModel_DataEffN3': np.genfromtxt('IndependentModel_WithVal_DataEffN3_Result/results.txt'),
     'IndependentModel_DataEffN7': np.genfromtxt('IndependentModel_WithVal_DataEffN7_Result/results.txt'),
     'IndependentModel_DataEffN10': np.genfromtxt('IndependentModel_WithVal_DataEffN10_Result/results.txt'),
     'IndependentModel_DataEffN15': np.genfromtxt('IndependentModel_WithVal_DataEffN15_Result/results.txt'),
-    'IndependentModel_DataEffN20': np.genfromtxt('IndependentModel_WithVal_DataEffN20_Result/results.txt'),
 
     'SequentialModel_DataEffN1': np.genfromtxt('SequentialModel_WithVal_DataEffN1_Result/results.txt'),
     'SequentialModel_DataEffN3': np.genfromtxt('SequentialModel_WithVal_DataEffN3_Result/results.txt'),
     'SequentialModel_DataEffN7': np.genfromtxt('SequentialModel_WithVal_DataEffN7_Result/results.txt'),
     'SequentialModel_DataEffN10': np.genfromtxt('SequentialModel_WithVal_DataEffN10_Result/results.txt'),
     'SequentialModel_DataEffN15': np.genfromtxt('SequentialModel_WithVal_DataEffN15_Result/results.txt'),
-    'SequentialModel_DataEffN20': np.genfromtxt('SequentialModel_WithVal_DataEffN20_Result/results.txt'),
 
     # TTI experiments
     'TTI_Joint0.01Model': np.genfromtxt('TTI__Joint0.01Model/results.txt'),
@@ -61,13 +57,17 @@ r = {
 # =============================================================================================
 # ======================================== Table 1 & 2 ========================================
 # =============================================================================================
-exps = ['Independent', 'Sequential', 'Joint0.01', 'Standard', 'Standard No Bottleneck', 'Multitask']
+exps = ['Independent', 'Sequential', 'Joint0.01', 'Standard', 'Standard Probe', 'Standard No Bottleneck', 'Multitask']
 print('Table 1 & 2')
 output_string = '                                    y Error    |    c Error    \n'
 for exp in exps:
-    output_string += '%30s  %.3f +- %.3f | ' % (exp, r[exp][0], r[exp][1])
+    if r[exp][0] >= 0:
+        output_string += '%30s  %.3f +- %.3f | ' % (exp, r[exp][0], r[exp][1] * 2)
+    else:
+        output_string += '%30s         -       | ' % exp
+
     if r[exp][2] >= 0:
-        output_string += '%.3f +- %.3f\n' % (r[exp][2], r[exp][3])
+        output_string += '%.3f +- %.3f\n' % (r[exp][2], r[exp][3] * 2)
     else:
         output_string += '       -     \n'
 print(output_string)
@@ -129,13 +129,13 @@ data = [('Standard'                , 0.5, r['Standard'][0]),
 colors = ['#9467bd', '#ff7f0e', '#ff7f0e', '#ff7f0e', '#2ca02c', '#ff7f0e', '#d62728']
 CUB_SCALE = 100.
 x_unit, y_unit = 2.5/CUB_SCALE, 0.25/CUB_SCALE
-delta_cub = [(-3.9,-0.5), (0.8,-0.4), (-0.,1.8), (0.5,-0.8), (0.6,-0.7), (0.6,-0.2), (0.6,-0.8)]
+delta_cub = [(-3.9,-0.5), (0.8,-0.4), (0.3,1.3), (0.5,-0.8), (0.6,-0.7), (0.6,-0.2), (0.6,-0.8)]
 
 subplt = axes[1, 0]
 subplt.scatter([d[1] for d in data], [d[2] for d in data], color=colors, **marker_style)
 x_fill_1 = [x/CUB_SCALE for x in [3.12, 3.23, 14.21, 52]]
 y_fill_1 = [x/CUB_SCALE for x in [25.5, 25.5, 25.5, 25.5]]
-y_fill_2 = [x/CUB_SCALE for x in [24.3, 19.1, 17.0, 17.1]]
+y_fill_2 = [x/CUB_SCALE for x in [24.3, 19.9, 17.0, 17.1]]
 subplt.set_ylim(bottom=16/CUB_SCALE, top=25.5/CUB_SCALE)
 subplt.set_xlim(left=0, right=52/CUB_SCALE)
 subplt.fill_between(x_fill_1, y_fill_1, y_fill_2, where=y_fill_2 <= y_fill_1, facecolor='#7f7f7f', alpha=0.1)
@@ -287,9 +287,9 @@ plt.savefig('figure4.png')
 exps = ['StandardAdversarialModel', 'Joint0.01AdversarialModel', 'SequentialAdversarialModel', 'IndependentAdversarialModel']
 output_string = '                                    y Error    |    c Error    \n'
 for exp in exps:
-    output_string += '%30s  %.3f +- %.3f | ' % (exp, r[exp][0], r[exp][1])
+    output_string += '%30s  %.3f +- %.3f | ' % (exp, r[exp][0], r[exp][1] * 2)
     if r[exp][2] >= 0:
-        output_string += '%.3f +- %.3f\n' % (r[exp][2], r[exp][3])
+        output_string += '%.3f +- %.3f\n' % (r[exp][2], r[exp][3] * 2)
     else:
         output_string += '       -     \n'
 print(output_string)
