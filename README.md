@@ -1,5 +1,7 @@
 # Concept Bottleneck Models (under construction)
 
+![teaser](https://github.com/yewsiang/ConceptBottleneck/blob/master/figures/teaser.png)
+
 This repository contains code and scripts for the following paper:
 
 > Concept Bottleneck Models
@@ -16,6 +18,9 @@ The NIH Osteoarthritis Initiative (OAI) dataset requires an application for data
 We focus instead on scripts replicating our results on CUB, which is a public dataset.
 
 ## Abstract
+
+![teaser](https://github.com/yewsiang/ConceptBottleneck/blob/master/figures/tti_qual_examples.png)
+
 We seek to learn models that we can interact with using high-level concepts:
 would the model predict severe arthritis if it thinks there is a bone spur in the x-ray?
 State-of-the-art models today do not typically support the manipulation of concepts like "the existence of bone spurs",
