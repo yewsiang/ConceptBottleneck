@@ -1,6 +1,6 @@
 # Concept Bottleneck Models (under construction)
 
-![teaser](https://github.com/yewsiang/ConceptBottleneck/blob/master/figures/teaser.png)
+![teaser](https://github.com/yewsiang/ConceptBottleneck/blob/master/figures/teaser_landscape.png)
 
 This repository contains code and scripts for the following paper:
 
