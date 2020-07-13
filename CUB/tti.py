@@ -164,6 +164,7 @@ def simulate_group_intervention(mode, replace_val, preds_by_attr, ptl_5, ptl_95,
 
 def parse_arguments(parser=None):
     if parser is None: parser = argparse.ArgumentParser(description='PyTorch Training')
+    parser.add_argument('-log_dir', default='.', help='where results are stored')
     parser.add_argument('-model_dirs', nargs='+', help='where the trained model is saved')
     parser.add_argument('-model_dirs2', nargs='+', default=None, help='where another trained model is saved (for bottleneck only)')
     parser.add_argument('-eval_data', default='test', help='Type of data (val/ test) to be used')
@@ -342,5 +343,5 @@ if __name__ == '__main__':
     for no_intervention_group, value in zip(no_intervention_groups, values):
         output_string += '%.4f %.4f\n' % (no_intervention_group, value)
     print(output_string)
-    output = open('results.txt', 'w')
+    output = open(os.path.join(args.log_dir, 'results.txt'), 'w')
     output.write(output_string)

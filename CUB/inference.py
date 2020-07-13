@@ -217,7 +217,7 @@ def eval(args):
             print(acc_counts_per_bin)
             print("F1 bins:")
             print(f1_counts_per_bin)
-            np.savetxt('concepts.txt', f1_counts_per_bin)
+            np.savetxt(os.path.join(args.log_dir, 'concepts.txt'), f1_counts_per_bin)
 
         balanced_acc, report = multiclass_metric(all_attr_outputs_int, all_attr_labels)
         f1 = f1_score(all_attr_labels, all_attr_outputs_int)
@@ -230,6 +230,7 @@ def eval(args):
 if __name__ == '__main__':
     torch.backends.cudnn.benchmark=True
     parser = argparse.ArgumentParser(description='PyTorch Training')
+    parser.add_argument('-log_dir', default='.', help='where results are stored')
     parser.add_argument('-model_dirs', default=None, nargs='+', help='where the trained models are saved')
     parser.add_argument('-model_dirs2', default=None, nargs='+', help='where another trained model are saved (for bottleneck only)')
     parser.add_argument('-eval_data', default='test', help='Type of data (train/ val/ test) to be used')
@@ -263,5 +264,5 @@ if __name__ == '__main__':
     output_string = '%.4f %.4f %.4f %.4f' % values
     print_string = 'Error of y: %.4f +- %.4f, Error of C: %.4f +- %.4f' % values
     print(print_string)
-    output = open('results.txt', 'w')
+    output = open(os.path.join(args.log_dir, 'results.txt'), 'w')
     output.write(output_string)

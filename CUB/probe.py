@@ -185,7 +185,7 @@ def run(args):
         output_string = '%.4f %.4f %.4f %.4f' % values
         print_string = 'Error of y: %.4f +- %.4f, Error of C: %.4f +- %.4f' % values
         print(print_string)
-        output = open('results.txt', 'w')
+        output = open(os.path.join(args.log_dir, 'results.txt'), 'w')
         output.write(output_string)
     else:
         args.data_dir = args.data_dirs[0]
