@@ -51,6 +51,7 @@ docker pull codalab/default-gpu
 ```
 
 ## Usage
+Standard task training for CUB can be run using the script in ```scripts/```. More information about how to perform data processing and other evaluations can be found in the README in ```CUB/```.
 
 ## Codalab
 You can visit our [Codalab page](https://worksheets.codalab.org/worksheets/0x362911581fcd4e048ddfd84f47203fd2) to follow our experiments and retrieve the figures in our paper. 
