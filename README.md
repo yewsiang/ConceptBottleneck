@@ -19,8 +19,6 @@ We focus instead on scripts replicating our results on CUB, which is a public da
 
 ## Abstract
 
-![teaser](https://github.com/yewsiang/ConceptBottleneck/blob/master/figures/tti_qual_examples.png)
-
 We seek to learn models that we can interact with using high-level concepts:
 would the model predict severe arthritis if it thinks there is a bone spur in the x-ray?
 State-of-the-art models today do not typically support the manipulation of concepts like "the existence of bone spurs",
@@ -33,16 +31,20 @@ On x-ray grading and bird identification, concept bottleneck models achieve comp
 while enabling interpretation in terms of high-level clinical concepts ("bone spurs") or bird attributes ("wing color").
 These models also allow for richer human-model interaction: accuracy improves significantly if we can correct model mistakes on concepts at test time.
 
+![teaser](https://github.com/yewsiang/ConceptBottleneck/blob/master/figures/tti_qual_examples.png)
+
 ## Prerequisites
 We used the same environment as Codalab's default gpu setting, please run `pip install -r requirements.txt`. Main packages are:
 - matplotlib 3.1.1
 - numpy 1.17.1
 - pandas 0.25.1
-- Pillow 6.1.0
+- Pillow 6.2.2
 - scipy 1.3.1
 - scikit-learn 0.21.3
 - torch 1.1.0
 - torchvision 0.4.0
+
+Note that we updated Pillow and removed tensorflow-gpu and tensorboard from requirements.txt.  
 
 ### Docker
 You can pull the Docker image directly from Docker Hub.
