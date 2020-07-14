@@ -1,4 +1,4 @@
-# Concept Bottleneck Models (under construction)
+# Concept Bottleneck Models
 
 ![teaser](https://github.com/yewsiang/ConceptBottleneck/blob/master/figures/teaser_landscape.png)
 
@@ -53,7 +53,7 @@ docker pull codalab/default-gpu
 ```
 
 ## Usage
-Standard task training for CUB can be run using the script in ```scripts/```. More information about how to perform data processing and other evaluations can be found in the README in ```CUB/```.
+Standard task training for CUB can be ran using the `scripts/experiments.sh` and Codalab scripts can be ran using `scripts/codalab_experiments.sh`. More information about how to perform data processing and other evaluations can be found in the README in `CUB/`.
 
 ## Codalab
 You can visit our [Codalab page](https://worksheets.codalab.org/worksheets/0x362911581fcd4e048ddfd84f47203fd2) to follow our experiments and retrieve the figures in our paper. 

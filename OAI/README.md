@@ -1,17 +1,17 @@
 
-# Concept Bottleneck Models - OAI Dataset
+# Concept Bottleneck Models - OAI Dataset (under construction)
 
 ## Dataset preprocessing
 
-1) Request OAI dataset from the following url: https://nda.nih.gov/oai/
+1) Request OAI dataset from the following [official website](https://nda.nih.gov/oai/).
 
 2) Run preprocessing steps according to Pierson et al and as described in the paper.
 
 ## Experiments
 
-1) Update the BASE_DIR and DATA_DIR directories in config.py to point to the base directory of the repository and the directory of the above preprocessed code.
+1) Update the `BASE_DIR` and `DATA_DIR` directories in `config.py` to point to the base directory of the repository and the directory of the above preprocessed code.
 
-2) Run experiments and replace [SEED] with the following seeds {603844, 841538, 620523, 217182, 84137}, and [ID] with the id of the seed. EG. The seed of 841538 has id 2.
+2) Run experiments and replace `[SEED]` with the following seeds {603844, 841538, 620523, 217182, 84137}, and `[ID]` with the id of the seed. EG. The seed of 841538 has id 2.
 
 ### a. Task and concept tables (Table 1 and 2)
 
@@ -66,12 +66,14 @@ python experiments.py oai --name AProbes_Conv4_XtoCtoY_Lambda0_FC50_Opt1 --exp t
 ### b. General results (Figure 2)
 
 ##### 1. Joint Models With Varying Lambda
-To run Joint models of various lambda, replace [LAMBDA] and [LEARN_RATE] with appropriate values below. In our experiments we used [LAMBDA] in {0.001, 0.01, 0.1, 1} and the corresponding [LEARN_RATE] in {0.00005, 0.00005, 0.00005, 0.0005}. EG. Lambda of 0.1 has learning rate 0.00005 while lambda of 1 has learning rate 0.0005.
+To run Joint models of various lambda, replace `[LAMBDA]` and `[LEARN_RATE]` with appropriate values below. In our experiments we used `[LAMBDA]` in {0.001, 0.01, 0.1, 1} and the corresponding `[LEARN_RATE]` in {0.00005, 0.00005, 0.00005, 0.0005}. 
+
+EG. Lambda of 0.1 has learning rate 0.00005 while lambda of 1 has learning rate 0.0005.
 ```
 python train.py --name XtoCtoY_Lambda[LAMBDA]_FC50_Opt[ID] --exp Joint --fc_layers 10 50 50 1 --y_fc_name fc4 --C_fc_name fc1 --C_weight [LAMBDA] --seed [SEED] --lr [LEARN_RATE]
 ```
 
-For the data efficiency experiments below, replace [PROPORTION] with {0.1, 0.2, 0.5} to train on different data proportions.
+For the data efficiency experiments below, replace `[PROPORTION]` with {0.1, 0.2, 0.5} to train on different data proportions.
 ##### 2. (Data Efficiency) Independent
 ```
 python train.py --name XtoC_C0.1_DataEff[PROPORTION]_[ID] --exp Concept_XtoC --fc_layers 10 --C_fc_name fc1 --C_weight 0.1 --lr 0.0005 --data_proportion [PROPORTION]
