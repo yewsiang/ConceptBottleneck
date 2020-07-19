@@ -3,9 +3,9 @@
 
 ## Dataset preprocessing
 
-1) Request OAI dataset from the following [official website](https://nda.nih.gov/oai/).
+1) Request data access permissions from the [Osteoarthritis Initiative](https://nda.nih.gov/oai/).
 
-2) Run preprocessing steps according to Pierson et al and as described in the paper.
+2) To directly obtain our preprocessed data (after obtaining access permissions), please contact [Emma Pierson](https://cs.stanford.edu/~emmap1/). Alternatively, we describe the dataset processing steps in our supplement.
 
 ## Experiments
 
