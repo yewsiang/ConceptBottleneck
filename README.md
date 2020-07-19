@@ -14,8 +14,8 @@ The experiments use the following datasets:
 - [NIH Osteoarthritis Initiative (OAI)](https://nda.nih.gov/oai/)
 - [Caltech-UCSD Birds 200 (CUB)](http://www.vision.caltech.edu/visipedia/CUB-200.html)
 
-The NIH Osteoarthritis Initiative (OAI) dataset requires an application for data access, so we are unable to provide the raw data here. 
-We focus instead on scripts replicating our results on CUB, which is a public dataset.
+The NIH Osteoarthritis Initiative (OAI) dataset requires an application for data access, so we are unable to provide the raw data here. To access that data, please first obtain data access permission from the [Osteoarthritis Initiative](https://nda.nih.gov/oai/), and then contact [Emma Pierson](https://cs.stanford.edu/~emmap1/) for processed data.
+Here, we focus on scripts replicating our results on CUB, which is public. We provide an executable, Dockerized version of those experiments on [Codalab](https://worksheets.codalab.org/worksheets/0x362911581fcd4e048ddfd84f47203fd2).
 
 ## Abstract
 
@@ -54,6 +54,3 @@ docker pull codalab/default-gpu
 
 ## Usage
 Standard task training for CUB can be ran using the `scripts/experiments.sh` and Codalab scripts can be ran using `scripts/codalab_experiments.sh`. More information about how to perform data processing and other evaluations can be found in the README in `CUB/`.
-
-## Codalab
-You can visit our [Codalab page](https://worksheets.codalab.org/worksheets/0x362911581fcd4e048ddfd84f47203fd2) to follow our experiments and retrieve the figures in our paper. 
