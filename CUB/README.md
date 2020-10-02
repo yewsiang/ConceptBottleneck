@@ -4,7 +4,7 @@
 
 OR) You can get `CUB_processed` from Step 1. above with the following steps
 1) Run `data_processing.py` to obtain train/ val/ test splits as well as to extract all relevant task and concept metadata into pickle files. 
-2) Run preprocessing steps as found in `utils.py`
+2) Run `generate_new_data.py` to obtain other versions of training data (class-level attributes, few-shot training, etc.) from the metadata.
 ## Experiments
 1) Update the paths (e.g. `BASE_DIR`, `-log_dir`, `-out_dir`, `--model_path`) in the scripts (where applicable) to point to your dataset and outputs.
 2) Run the scripts below to get the results for 1 seed. Change the seed values and corresponding file names to get results for more seeds.
