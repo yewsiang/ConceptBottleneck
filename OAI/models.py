@@ -653,6 +653,13 @@ class ModelXtoYWithAuxC(InterventionModelOnC, ModelXtoCY):
         InterventionModelOnC.__init__(self, cfg)
         ModelXtoCY.__init__(self, cfg)
 
+        # latent fc layer
+        C_fc_size = self.fc_layers[int(self.C_fc_name[2:]) - 1]
+        latent_size = C_fc_size - len(self.C_cols)
+        self.fc_latent = nn.Linear(latent_size, latent_size)
+
+        self.build()
+
     def forward(self, inputs):
         x = inputs['image']
         x = self.compute_cnn_features(x)
@@ -670,7 +677,11 @@ class ModelXtoYWithAuxC(InterventionModelOnC, ModelXtoCY):
                 # No ReLu for concept layer
                 x_concepts = x[:, :N_concepts]
                 x_latent = self.relu(x[:, N_concepts:])
-                x = torch.cat([x_concepts, x_latent], dim=1)
+
+                # regularized latent fc
+                x_latent_reg = self.relu(self.fc_latent(x_latent))  
+                
+                x = torch.cat([x_concepts, x_latent_reg], dim=1)
                 outputs['C'] = x_concepts
                 continue
             elif fc_name == self.y_fc_name:

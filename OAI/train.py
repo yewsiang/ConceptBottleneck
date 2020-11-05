@@ -219,7 +219,7 @@ def save_model_results(model, results, args, dataset_kwargs, model_kwargs, exp_n
         dest_file = os.path.join(dest_code_dir, model_code_file)
         os.system('cp %s %s' % (src_file, dest_file))
     # Dataset code
-    src_file = os.path.join(BASE_DIR, 'dataset.py')
+    src_file = os.path.join(BASE_DIR, 'OAI', 'dataset.py')
     dest_file = os.path.join(dest_code_dir, 'dataset.py')
     os.system('cp %s %s' % (src_file, dest_file))
 
@@ -499,6 +499,7 @@ def generate_configs(args):
             'lr': 0.0005
         },
         'optimizer_name': 'adam',
+        'latent_reg': None,
         'pretrained_path': None,
         'pretrained_model_name': 'resnet18',
         'scheduler_kwargs': {
@@ -585,6 +586,7 @@ def generate_configs(args):
 
     elif experiment_name == 'StandardWithAuxC':
         assert y_dims == args.fc_layers[fc_layer_y], print(y_dims, args.fc_layers[fc_layer_y])
+        # assert C_dims == 0.5 * args.fc_layers[fc_layer_C], print(C_dims, args.fc_layers[fc_layer_C])
 
     elif experiment_name == 'Multitask':
         # model_kwargs['fc_layers'] = [N_concepts + 1]
@@ -624,6 +626,9 @@ def generate_configs(args):
         kwargs['gamma'] = 0.5
     else:
         raise Exception('Unknown scheduler: %s' % args.lr_scheduler)
+
+    # Set latent regularization parameter
+    model_kwargs['latent_reg'] = args.latent_reg
 
     # Different sampling weights according to the sample's C and y
     if args.sampling in ['weigh_C', 'weigh_Cy']:
@@ -707,6 +712,7 @@ def parse_arguments(experiment):
     parser.add_argument('--lr', type=float, default=0.0005, help='Learning rate.')
     parser.add_argument('--lr_scheduler', default='step', choices=['plateau', 'step'],
                         help='Learning rate scheduler for training.')
+    parser.add_argument('--latent_reg', type=float, default=0, help='Regularization for gate units in C layer')
 
     # ---- Loading of Pretrained Models ----
     parser.add_argument('--pretrained', type=str, nargs='+', default=None, help='Pretrained model path.')

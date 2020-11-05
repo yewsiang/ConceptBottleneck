@@ -19,6 +19,7 @@ class DeepLearningModel(nn.Module):
         self.verbose = cfg['verbose']
         self.num_epochs = cfg['num_epochs']
         self.optimizer_name = cfg['optimizer_name']
+        self.latent_reg = cfg['latent_reg']
         self.optimizer_kwargs = cfg['optimizer_kwargs']
         self.scheduler_kwargs = cfg['scheduler_kwargs']
         self.prefixes_of_vars_to_freeze = cfg['prefixes_of_vars_to_freeze']
@@ -207,15 +208,31 @@ class DeepLearningModel(nn.Module):
 
         return all_metrics
 
-    def setup_optimizers(self, optimizer_name, optimizer_kwargs, scheduler_kwargs):
+    def setup_optimizers(self, optimizer_name, latent_reg, optimizer_kwargs, scheduler_kwargs):
+
+        # use param groups to regularize the fc_latent layer
+        if hasattr(self, 'fc_latent'):
+            non_latent_params = list(set(self.parameters()) - set(self.fc_latent.parameters()))
+            param_groups = [{
+                'params': filter(lambda p: p.requires_grad, non_latent_params),
+                **optimizer_kwargs
+            }, {
+                'params': self.fc_latent.parameters(),
+                **optimizer_kwargs,
+                'weight_decay': latent_reg
+            }]
+            print(f"Regularizing fc_latent layer with lambda={latent_reg}")
+        else:
+            param_groups = [{
+                'params': filter(lambda p: p.requires_grad, self.parameters()),
+                **optimizer_kwargs
+            }]
 
         # https://github.com/pytorch/pytorch/issues/679
         if optimizer_name == 'sgd':
-            self.optimizer = optim.SGD(filter(lambda p: p.requires_grad, self.parameters()),
-                                       **optimizer_kwargs)
+            self.optimizer = optim.SGD(param_groups)
         elif optimizer_name == 'adam':
-            self.optimizer = optim.Adam(filter(lambda p: p.requires_grad, self.parameters()),
-                                        **optimizer_kwargs)
+            self.optimizer = optim.Adam(param_groups)
         else:
             raise Exception("Not a valid optimizer")
 
@@ -336,7 +353,7 @@ class PretrainedResNetModel(DeepLearningModel):
         self.cuda()
 
         # Setup optimizers in the DeepLearningModel class
-        self.setup_optimizers(self.optimizer_name, self.optimizer_kwargs, self.scheduler_kwargs)
+        self.setup_optimizers(self.optimizer_name, self.latent_reg, self.optimizer_kwargs, self.scheduler_kwargs)
 
     def compute_cnn_features(self, x):
         x = self.conv1(x)
@@ -416,7 +433,8 @@ class PretrainedResNetModel(DeepLearningModel):
                 model_zoo.load_url(model_urls[self.pretrained_model_name]), strict=False)
 
             expected_incompatible = ['fc%d.weight' % (l + 1) for l in range(N_layers)] + \
-                                    ['fc%d.bias' % (l + 1) for l in range(N_layers)]
+                                    ['fc%d.bias' % (l + 1) for l in range(N_layers)] + \
+                                    ['fc_latent.weight', 'fc_latent.bias']
             assert all([x in expected_incompatible for x in incompatible])
             assert all([x in ['fc.weight', 'fc.bias'] for x in unexpected])
         else:
