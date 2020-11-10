@@ -14,7 +14,8 @@ The experiments use the following datasets:
 - [NIH Osteoarthritis Initiative (OAI)](https://nda.nih.gov/oai/)
 - [Caltech-UCSD Birds 200 (CUB)](http://www.vision.caltech.edu/visipedia/CUB-200.html)
 
-The NIH Osteoarthritis Initiative (OAI) dataset requires an application for data access, so we are unable to provide the raw data here. To access that data, please first obtain data access permission from the [Osteoarthritis Initiative](https://nda.nih.gov/oai/), and then contact [Emma Pierson](https://cs.stanford.edu/~emmap1/) for processed data.
+The NIH Osteoarthritis Initiative (OAI) dataset requires an application for data access, so we are unable to provide the raw data here. To access that data, please first obtain data access permission from the [Osteoarthritis Initiative](https://nda.nih.gov/oai/), and then contact [Emma Pierson](https://cs.stanford.edu/~emmap1/) for data processing code.
+
 Here, we focus on scripts replicating our results on CUB, which is public. We provide an executable, Dockerized version of those experiments on [Codalab](https://worksheets.codalab.org/worksheets/0x362911581fcd4e048ddfd84f47203fd2).
 
 ## Abstract
