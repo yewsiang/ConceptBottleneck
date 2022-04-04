@@ -3,9 +3,7 @@
 
 ## Dataset preprocessing
 
-1) Request data access permissions from the [Osteoarthritis Initiative](https://nda.nih.gov/oai/).
-
-2) To directly obtain our preprocessed data (after obtaining access permissions), please contact [Emma Pierson](https://cs.stanford.edu/~emmap1/). Alternatively, we describe the dataset processing steps in our supplement.
+The NIH Osteoarthritis Initiative (OAI) dataset requires an application for data access, so we are unable to provide the raw data here. To access that data, please first obtain data access permission from the [Osteoarthritis Initiative](https://nda.nih.gov/oai/), and then refer to this [Github repository](https://github.com/epierson9/pain-disparities) for data processing code. If you use it, please cite the Pierson et al. paper corresponding to that repository as well.
 
 ## Experiments
 
