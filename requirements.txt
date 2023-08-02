@@ -24,7 +24,7 @@ murmurhash==1.0.2
 networkx==2.3
 nltk==3.4.5
 nose==1.3.7
-numpy==1.17.1
+numpy==1.22.0
 pandas==0.25.1
 Pillow==6.2.2
 plac==0.9.6
